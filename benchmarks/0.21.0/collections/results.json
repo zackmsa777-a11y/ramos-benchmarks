@@ -1,0 +1,84 @@
+{
+  "version": "Ramos 0.21.0 \u2014 compiler written in Ramos; Linux and Windows x64",
+  "compiler_sha256": "e240393b8783023c6cc3a123a9961c98f2e3bfc74ef51d2df5de9914f8344e5b",
+  "machine": "Linux-6.17.0-1020-oracle-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz",
+  "count": 131072,
+  "cycles": 24,
+  "samples": 9,
+  "expected_checksum": 206156857344,
+  "libraries": {
+    "legacy": "408be40b2709bccb9889ed4b03cf37db10415ea987085e816488e326c3d8333c",
+    "current": "1bc807e8b4b7d2cb7ab70fc54149e620c3fd2369be35cebcd68f137412a9928c"
+  },
+  "results": {
+    "legacy-growth": {
+      "wall_ms": [
+        149.2241609375924,
+        157.98918902873993,
+        142.2007749788463,
+        143.3536249678582,
+        141.9237400405109,
+        153.29281496815383,
+        145.3197388909757,
+        146.03417203761637,
+        147.27673796005547
+      ],
+      "managed_bytes": {
+        "after_fill": 4194928,
+        "after_collect": 1048656,
+        "after_clear_collect": 1048656,
+        "after_release_collect": 80
+      },
+      "median_ms": 146.03417203761637,
+      "minimum_ms": 141.9237400405109,
+      "maximum_ms": 157.98918902873993
+    },
+    "current-growth": {
+      "wall_ms": [
+        145.51668101921678,
+        144.8419881053269,
+        149.96461407281458,
+        154.08315416425467,
+        147.86502299830317,
+        148.5936080571264,
+        143.61709402874112,
+        148.9359710831195,
+        145.50705696456134
+      ],
+      "managed_bytes": {
+        "after_fill": 4194928,
+        "after_collect": 1048656,
+        "after_clear_collect": 1048656,
+        "after_release_collect": 80
+      },
+      "median_ms": 147.86502299830317,
+      "minimum_ms": 143.61709402874112,
+      "maximum_ms": 154.08315416425467
+    },
+    "current-reserved": {
+      "wall_ms": [
+        152.57953479886055,
+        167.0392518863082,
+        157.46897691860795,
+        163.73511287383735,
+        150.76233982108533,
+        161.93598904646933,
+        150.28210100717843,
+        152.0957169122994,
+        151.81060298345983
+      ],
+      "managed_bytes": {
+        "after_fill": 3145952,
+        "after_collect": 1048656,
+        "after_clear_collect": 1048656,
+        "after_release_collect": 80
+      },
+      "median_ms": 152.57953479886055,
+      "minimum_ms": 150.28210100717843,
+      "maximum_ms": 167.0392518863082
+    }
+  },
+  "notes": "All variants compiled with one 0.21 compiler; total wall time includes startup, pushes, reads, GC and a memory fixture; no C/Rust/Python execution comparison. Legacy release uses direct array detachment because its library lacks release.",
+  "measured_date_utc": "2026-10-12"
+}

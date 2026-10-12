@@ -1,0 +1,10 @@
+{
+  "legacy_source": "https://github.com/zackmsa777-a11y/ramos/blob/5778cee06f3e95d5bd178ac7aa5a44c6cd19bc4e/stdlib/lists.ramos",
+  "current_source": "https://github.com/zackmsa777-a11y/ramos/blob/0091e4ec850ea97eda36982a570b13a0f23dea3e/stdlib/lists.ramos",
+  "compiler_source_commit": "0091e4ec850ea97eda36982a570b13a0f23dea3e",
+  "libraries_sha256": {
+    "legacy": "408be40b2709bccb9889ed4b03cf37db10415ea987085e816488e326c3d8333c",
+    "current": "1bc807e8b4b7d2cb7ab70fc54149e620c3fd2369be35cebcd68f137412a9928c"
+  },
+  "results_sha256": "8736a1b13108a0a8545268c80e3211c92e37e2d1e742e8e4980d1f7638bb528a"
+}

@@ -93,3 +93,9 @@ Browse the shared [Ramos topic](https://github.com/topics/ramos).
 [0.20.0 terminal rendering report](benchmarks/0.20.0/rmatrix/report.md) preserves
 before/after sources, raw PTY results and a self-contained reproduction runner.
 It measures application output and pacing, separately from the eight-task index.
+
+[0.21 collection workload](benchmarks/0.21.0/collections/report.md) compares
+normal growth, reservation and explicit release with source snapshots and raw
+samples. It uses a separately verified 0.21 compiler; the existing suite's 0.20
+pin and historical rmatrix reproduction commands remain valid. Reservation
+reduces observed allocated bytes in the fixture; no speed gain is established.
