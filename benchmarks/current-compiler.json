@@ -1,0 +1,56 @@
+{
+  "version": "0.23.0",
+  "source_commit": "d496ba4eb84d11152100d258df0464bea4a405bf",
+  "compiler_sha256": "42ccaa638cd3815f31e1447b3c1d70c32351dfeccfdace9a9cba7eb71e8d87f7",
+  "fixtures": {
+    "lcg": {
+      "Ramos": "dc0e70b67f86d1007d6eeccad2529e20311df529d60e800b9ccbb5da78f981f4",
+      "C": "1bb04883382af80e8296a5e50d58f1e338323cb35548e8c6404bce777bfbd853",
+      "Rust": "5551233d55ab42d0f02c0c269c2fd56003479edcbd7151f37c9c24b312658210",
+      "Python": "12ae883c821a862caa9957913809549eb242f95d35dc5df2047529849787bf1f"
+    },
+    "branches": {
+      "Ramos": "db8c2e9a51a69421426ef5c12b7e4c31daf285a6ed1596f641a3ba6fe26304d9",
+      "C": "ecb6807e5ed70b320a64fda3f547d7547616b0960cd1bb2803cb41830afd3dcc",
+      "Rust": "3ca3535af9c08f413a078a414f6c939b89da5d99cb40128f20a4e27b7b2ac603",
+      "Python": "9ba9d80ee757c6380b5008864a5d1238d5c31a8eda86fbb1585d9964384da783"
+    },
+    "gcd": {
+      "Ramos": "7da6f835bd3674721660f6e5e46c653eda502128ca6c6a9a588132a6aa924e0b",
+      "C": "f04b38b50801a09ddf0f073dc3b972a63ec061e7f533e233a603cce36b4c43d4",
+      "Rust": "5dfd7614105fe418638f5876b4ba1e15b21ea85cd7e5fe6075d0847dadae21f3",
+      "Python": "7a4a5541133c9bc31ddad561d3259a363e75cc9f0529feb5baa896ad05368f80"
+    },
+    "recursive_tree": {
+      "Ramos": "289ca1ac26e9d3677ef3943507512b5aea0ee07d75454d062a4721e7fa00d504",
+      "C": "d111bd4bc609df4e3bcb9b54cf35f314345c9245f5fae8044139e5263500c2de",
+      "Rust": "b01f1df28cf7dc455a1ff6f3dbe0178b3a03b8c30fdb9843264c9b0a12e4493b",
+      "Python": "3f68deb3006b81bebe8a6d8e5761a9676e93707e46a3c54ed75e346c3456568c"
+    },
+    "byte_hash": {
+      "Ramos": "ba4f866c8288e8dd366b456208bf8f32347d1b315cca659c44c4a398d6984cce",
+      "C": "fb6c9af5a0690448c900aa26e2f1cae9206adc199bbeb09841c33f7191ca9590",
+      "Rust": "7d166fb257659d66caadf1d8c8fc228817490a285ac28e8a6038cb7d2efe4c82",
+      "Python": "2af2a0c59212675ff06b6d804f488ae78b1d546f2683a8e6c3f65800889e50e4"
+    },
+    "insertion_sort": {
+      "Ramos": "6434692fffcd51438430095971263f8ba79bf118579549c988ac2b3baacc2a93",
+      "C": "e38fcbe6bfe0d40233b07c7c1e0827eaa14f9a2321a8ce6fad6734f0f2d3ffda",
+      "Rust": "6f5ea30525e4d7522b80c5807a67e4842b6b3cdad734efd8b88d8ebc5d714e5f",
+      "Python": "f6f0e7ea6339af17104330f4900a6877c26a62c32a2160a17126b21c71edd685"
+    },
+    "matrix": {
+      "Ramos": "a3334ecc385dee0bcb3326f0cdc176db81bd3d03c3e1cdad1f676084c0b1b100",
+      "C": "10acbc532817950b72cc9d674046f2527d6793d559825c06f089780f9acc0eb2",
+      "Rust": "0110fdb31b007e8b4619428ba2a478b1a2049935326937cd46f99db9d33f6817",
+      "Python": "335b39d3ad46423d253d2f93c7cbd261e8314ebdba95f2fe038b497e5ad4bc8e"
+    },
+    "text_scan": {
+      "Ramos": "82d7c3cd58f9f2488eb91cc6ce0eb16feea7bb40ab5f68fd5447bd3db2d73bad",
+      "C": "5c3bed08e51e540c821c6646a41a3c2a9713f1d257997d79bdaf436771d36e16",
+      "Rust": "2f30ca5e89869ccc323e22df4d9418d327db9d259f14b5df2d5d04a486187ced",
+      "Python": "bb83d1bbfab96fd30db82c1cc0cf83c850f510e421dc503c1d003b6d44d0a5f7"
+    }
+  },
+  "scope": "Independent output validation only; historical 0.22 timings are unchanged."
+}
