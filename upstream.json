@@ -318,8 +318,8 @@
   ],
   "adaptations": {
     "benchmarks/run_suite.py": {
-      "reason": "Accept validated Ramos 0.20, use work/ output defaults and repository-appropriate report links/setup.",
-      "sha256": "73beddcc15209cf7697effee120ed8f3f2c9f943600db22d932ce9510e21d176"
+      "reason": "Accept validated Ramos 0.20\u20130.22, use work/ output defaults and repository-appropriate report links/setup. Historical 0.20 compiler pin remains available for the terminal reproduction.",
+      "sha256": "db7d02d20ed5800508421867ae43b50c33b27f0917e90f468a1317656dfe427f"
     },
     "benchmarks/compare_versions.py": {
       "reason": "Use work/ output defaults, report actual compiler versions and host, record baseline hash and fix standalone reproduction commands.",

@@ -11,3 +11,5 @@ subprocess.run([sys.executable, str(ROOT / "benchmarks/run_suite.py"),
                 "--compiler", str(compiler), "--validate-only"], check=True, cwd=ROOT)
 print("324 reference output checks passed (8 tasks + startup, 4 languages, 9 inputs)")
 subprocess.run([sys.executable, str(ROOT / 'tools/check_collections.py')], check=True, cwd=ROOT)
+
+subprocess.run([sys.executable, str(ROOT / 'tools/check_current.py')], check=True, cwd=ROOT)

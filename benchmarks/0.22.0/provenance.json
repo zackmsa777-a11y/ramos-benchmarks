@@ -1,0 +1,8 @@
+{
+  "version": "0.22.0",
+  "source_repository": "https://github.com/zackmsa777-a11y/ramos",
+  "source_commit": "0562cbdbeb8d7e09966ac97e54c53f95d1ec3e8e",
+  "compiler_sha256": "a034ea48f838c056c87c085450f0e96e727247b91f098d281f9ec4fa8cc801cc",
+  "measurement": "Final release compiler, five repeated samples per language/task, two warmups, independent references; x64 Linux only.",
+  "historical_pin": "The repository default compiler remains 0.20 for historical terminal reproduction."
+}

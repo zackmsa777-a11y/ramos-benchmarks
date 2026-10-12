@@ -99,3 +99,13 @@ normal growth, reservation and explicit release with source snapshots and raw
 samples. It uses a separately verified 0.21 compiler; the existing suite's 0.20
 pin and historical rmatrix reproduction commands remain valid. Reservation
 reduces observed allocated bytes in the fixture; no speed gain is established.
+
+## Current 0.22 measurements
+
+The [fresh eight-task report](benchmarks/0.22.0/report.md) uses the final 0.22
+compiler and five samples per task/language: C-relative Ramos index **36.02**,
+about **14.87×** Python throughput and **2.78×** C execution time on this Linux
+VM suite. These are workload measurements, not a language-quality score.
+The report records source/compiler hashes, flags, raw samples and variability.
+The default 0.20 pin remains for historical terminal reproduction; the checks
+also verify the independent 0.22 pin against all 324 reference outputs.
