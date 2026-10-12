@@ -50,7 +50,7 @@ def main():
     for axis in (ax, tasks_ax):
         axis.spines[['top', 'right']].set_visible(False)
     fig.suptitle(f"Ramos {data['ramos_version'].split()[1]} · native Linux performance", x=.05, ha='left', fontsize=17, fontweight='bold')
-    fig.text(.05, .015, f"Verified outputs · optimized checked C/Rust · CPython · {data['settings']['samples']} samples/task · shared Xeon VM\n"
+    fig.text(.05, .015, f"Verified outputs · optimized checked C/Rust · CPython · {data['settings']['samples']} samples/task\n"
              'Ordinary CLI wall time, including startup. Error bars: within-run bootstrap 95% intervals.', fontsize=9, color='#444444')
     fig.tight_layout(rect=[.015, .065, 1, .92], w_pad=3)
     fig.savefig(args.output, dpi=180, facecolor='white')

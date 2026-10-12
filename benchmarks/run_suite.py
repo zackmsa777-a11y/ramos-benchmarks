@@ -247,29 +247,28 @@ def report_markdown(data):
     lines += ['', '## Next work for Ramos', '',
               '1. Profile the largest native gaps before adding an optimization pass: ' +
               ', '.join(f"{t['description']} ({t['timings']['Ramos']['median_ns'] / t['timings']['C']['median_ns']:.1f}× C time)"
-                        for t in slowest) + '. Version 0.7.1 already reduces buffer-call and stack traffic '
-              'and specializes constant arithmetic. Further changes need their own measurements.',
+                        for t in slowest) + '. Changes need their own measurements.',
               '2. Compare each optimizer change against these exact work counts and compiler hashes, '
               'with fresh samples, language correctness tests and both self-hosting proofs. '
-              'See [the paired 0.7.0/0.7.1 comparison](optimization.md).',
+              'See the archived [0.7.0/0.7.1 comparison](https://github.com/zackmsa777-a11y/ramos-benchmarks/blob/main/benchmarks/optimization.md).',
               '3. Measure native Windows separately, then extend the suite with real file-processing '
               'programs. Keep syntax small while improving generated code.', '',
-              '![Overall index and task ratios](score.png)', '',
+              'Optional chart: generate `score.png` with `benchmarks/plot_results.py --results RESULTS --output IMAGE`.', '',
               '## Environment', '', f"- CPU: {data['environment']['cpu_model']}",
               f"- Platform: {data['environment']['platform']}",
               *[f'- {value}' for value in data['environment']['versions'].values()],
               f"- Ramos executable SHA-256: `{data['compiler_sha256']}`", '',
               '## Reproduce', '', 'From the repository root on x86-64 Linux with GCC, Rust and Python:', '',
-              '```sh', 'make', 'python3 benchmarks/run_suite.py', '```', '',
+              '```sh', 'python3 tools/compiler.py', 'python3 benchmarks/run_suite.py --output-dir work/results', '```', '',
               'Use `--validate-only` for output verification without timings. `--work-counts '
               'benchmarks/results.json` reuses the published work counts; `--output-dir` keeps '
-              'results from another machine separate. Workload sources are in [fixtures/](fixtures/). '
+              'results from another machine separate. Workload sources are in [fixtures](https://github.com/zackmsa777-a11y/ramos-benchmarks/tree/main/benchmarks/fixtures). '
               'This is a custom Ramos suite, not a SPEC benchmark. The geometric mean follows '
               '[the established ratio aggregation method](https://open.spec.org/cpu2026/docs/runrules.html). '
               'See [GCC checked arithmetic](https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html) '
               'and [Rust code generation settings](https://doc.rust-lang.org/rustc/codegen-options/index.html).', '',
               'Historical results from a different machine and Ramos 0.2 are preserved in '
-              '[report-0.2.md](report-0.2.md) and [results-0.2.json](results-0.2.json); '
+              '[report-0.2.md](https://github.com/zackmsa777-a11y/ramos-benchmarks/blob/main/benchmarks/report-0.2.md) and [results-0.2.json](https://github.com/zackmsa777-a11y/ramos-benchmarks/blob/main/benchmarks/results-0.2.json); '
               'they are not directly comparable to this suite.', '']
     return '\n'.join(lines)
 

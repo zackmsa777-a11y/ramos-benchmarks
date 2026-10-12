@@ -318,12 +318,16 @@
   ],
   "adaptations": {
     "benchmarks/run_suite.py": {
-      "reason": "Accept validated Ramos 0.19 and write fresh reports under ignored work/; preserve published measurements.",
-      "sha256": "928698307f6f3ffbde042693fed55c6ad8aa7be7e3d62b8fecb4ac11a22cd687"
+      "reason": "Accept validated Ramos 0.19, use work/ output defaults and repository-appropriate report links/setup.",
+      "sha256": "24be7dd3646a283d77aebd67c7a39c58f54e30cdd61016ef294dcc6fc3a14bfd"
     },
     "benchmarks/compare_versions.py": {
-      "reason": "Accept validated Ramos 0.19 and write fresh reports under ignored work/; preserve published measurements.",
-      "sha256": "ca1a518e79470e3e0651296c676985eb69677f419621eb845724dc0262b356da"
+      "reason": "Use work/ output defaults, report actual compiler versions and host, record baseline hash and fix standalone reproduction commands.",
+      "sha256": "b795853841b4a0998f7db84c1f6b9193ce2b7ec1d905961c41c3d1bd76420121"
+    },
+    "benchmarks/plot_results.py": {
+      "reason": "Remove a hard-coded historical host label from newly generated plots.",
+      "sha256": "03623a5b174a90faa85ba1ff82b9e788d59550f31be94ba5265d1e54b6a4a1ad"
     }
   }
 }

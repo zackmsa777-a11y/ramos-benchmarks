@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import random
 import statistics
@@ -69,7 +70,9 @@ def main():
             statistics.median(rng.choices(t['timings']['old']['samples_ns'], k=args.samples)) /
             statistics.median(rng.choices(t['timings']['new']['samples_ns'], k=args.samples))
             for t in tasks.values()))
-    report = {'measured_at_utc': datetime.now(timezone.utc).isoformat(),
+    report = {'environment': {'platform': platform.platform(), 'cpu_model': next(line.split(':', 1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name'))},
+              'baseline_results_sha256': digest(args.baseline_results),
+              'measured_at_utc': datetime.now(timezone.utc).isoformat(),
               'compilers': {name: {'version': suite.run([p, '--version'])[1].stdout.decode().strip(),
                                     'sha256': digest(p)} for name, p in [('old', old), ('new', new)]},
               'settings': {'samples': args.samples, 'warmups': 2, 'pinned_cpu': cpu,
@@ -77,10 +80,12 @@ def main():
               'tasks': tasks, 'geomean_speedup': speed,
               'bootstrap_95pct': [suite.quantile(trials, .025), suite.quantile(trials, .975)]}
     (output / 'optimization.json').write_text(json.dumps(report, indent=2) + '\n')
-    lines = ['# Ramos 0.7.1 optimization measurements', '',
-             f'Ramos 0.7.1 executes these eight tasks **{speed:.2f}× faster** than the saved 0.7.0 compiler '
+    old_version = report['compilers']['old']['version']
+    new_version = report['compilers']['new']['version']
+    lines = [f'# {old_version} / {new_version} paired execution measurements', '',
+             f'{new_version} / {old_version} throughput ratio: **{speed:.2f}×** '
              '(equal-weight geometric mean of median time ratios).', '',
-             '| Task | 0.7.0 ms | 0.7.1 ms | Speedup |', '|---|---:|---:|---:|']
+             f'| Task | {old_version} ms | {new_version} ms | Ratio |', '|---|---:|---:|---:|']
     for t in tasks.values():
         lines.append(f"| {t['description']} | {t['timings']['old']['median_ns']/1e6:.3f} | "
                      f"{t['timings']['new']['median_ns']/1e6:.3f} | {t['speedup']:.2f}× |")
@@ -90,16 +95,18 @@ def main():
               f'reference outputs as the published baseline. Each pair has two verified warmups and {args.samples} '
               f'timed rounds with randomized old/new order on one pinned logical CPU. Every timed output '
               'is verified. The compiler hashes, binary hashes, ordering and raw samples are in '
-              '[optimization.json](optimization.json). The host is the same shared Xeon Linux VM '
-              'as the [four-language report](report.md). No Windows performance claim.', '',
-              'The old compiler is preserved by SHA-256 from the [0.7.0 baseline](baseline-0.7.0/results.json). '
-              'This interleaved comparison gives stronger evidence for the change than comparing timings '
-              'recorded in separate runs. The [current C/Rust/Python comparison](report.md) uses those '
-              'same workloads, with fresh samples. This is an execution index, not a language-quality grade.', '',
-              '## Reproduce', '', '```sh',
-              'git worktree add work/baseline-source v0.7.0', 'make -C work/baseline-source',
-              'make', 'python3 benchmarks/compare_versions.py --baseline-compiler work/baseline-source/ramos', '```', '',
-              'See [instruction selection and correctness](../docs/optimization.md).', '']
+              '[optimization.json](optimization.json). Host details and the baseline results hash '
+              'are recorded there; no claim that this is the historical baseline machine. '
+              'No Windows performance claim.', '',
+              'The old compiler SHA-256 must match the supplied baseline JSON. '
+              'This paired run measures both compilers on this host. '
+              'This is an execution ratio, not a language-quality grade.', '',
+              '## Reproduce', '', 'From the benchmark repository root:', '', '```sh',
+              'python3 tools/compiler.py',
+              'python3 benchmarks/compare_versions.py --baseline-compiler /absolute/path/to/baseline/ramos '
+              '--baseline-results /absolute/path/to/baseline/results.json --output-dir work/comparisons', '```', '',
+              'Use the exact baseline JSON and compiler hashes recorded in the raw results. '
+              'For another current compiler pass `--compiler` explicitly.', '']
     (output / 'optimization.md').write_text('\n'.join(lines))
     print(f'Overall speedup: {speed:.3f}x', flush=True)
 

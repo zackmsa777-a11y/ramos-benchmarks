@@ -67,8 +67,9 @@ Never combine unrelated versions or machines into one claimed current score.
 | [Text-builder workload](benchmarks/0.17.0/text-builder.md) | One focused text-building workload, not an overall score |
 
 Copied fixtures, reports, JSON and images remain byte-identical to the upstream
-commit in [upstream.json](upstream.json). Only two orchestration scripts are
-adapted: recognize 0.19, and place fresh reports under `work/`. The original
+commit in [upstream.json](upstream.json). Two orchestration scripts and the optional plot generator are adapted: accept
+0.19, place fresh reports under `work/`, use standalone reproduction commands
+and label new reports with their actual compiler versions and host. The original
 hashes and adaptation hashes are recorded. These old measurements are not new
 0.19.1 measurements. New optimization claims require fresh data and compiler
 correctness/self-hosting checks in the source repository.
