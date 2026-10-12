@@ -1,0 +1,242 @@
+[
+  {
+    "mode": "rain",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 164,
+    "observed_fps": 55.0,
+    "median_frame_ms": 18.04,
+    "p95_frame_ms": 19.06,
+    "output_bytes": 4116379,
+    "output_MiB_per_second": 1.308,
+    "cpu_seconds": 0.31,
+    "rss_kib": 20488.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 3.0018558769952506,
+    "keys": "",
+    "version": "baseline"
+  },
+  {
+    "mode": "spiral",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 160,
+    "observed_fps": 53.59,
+    "median_frame_ms": 18.46,
+    "p95_frame_ms": 19.62,
+    "output_bytes": 2287799,
+    "output_MiB_per_second": 0.726,
+    "cpu_seconds": 0.39,
+    "rss_kib": 24328.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 3.0048831179738045,
+    "keys": "",
+    "version": "baseline"
+  },
+  {
+    "mode": "plasma",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 144,
+    "observed_fps": 48.32,
+    "median_frame_ms": 20.2,
+    "p95_frame_ms": 21.8,
+    "output_bytes": 7733625,
+    "output_MiB_per_second": 2.458,
+    "cpu_seconds": 0.62,
+    "rss_kib": 24712.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 3.0000015709083527,
+    "keys": "",
+    "version": "baseline"
+  },
+  {
+    "mode": "blackhole",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 156,
+    "observed_fps": 52.05,
+    "median_frame_ms": 18.94,
+    "p95_frame_ms": 20.15,
+    "output_bytes": 2296719,
+    "output_MiB_per_second": 0.726,
+    "cpu_seconds": 0.47,
+    "rss_kib": 24584.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 3.0176158228423446,
+    "keys": "",
+    "version": "baseline"
+  },
+  {
+    "mode": "plasma",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 28,
+    "observed_fps": 9.6,
+    "median_frame_ms": 102.98,
+    "p95_frame_ms": 109.64,
+    "output_bytes": 1528404,
+    "output_MiB_per_second": 0.486,
+    "cpu_seconds": 0.12,
+    "rss_kib": 20616.0,
+    "read_limit_bytes_per_second": 524288,
+    "wall_seconds": 3.000365415820852,
+    "keys": "",
+    "version": "baseline"
+  },
+  {
+    "mode": "rain",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 111,
+    "observed_fps": 55.83,
+    "median_frame_ms": 17.89,
+    "p95_frame_ms": 18.94,
+    "output_bytes": 2680094,
+    "output_MiB_per_second": 1.273,
+    "cpu_seconds": 0.2,
+    "rss_kib": 13832.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 2.007514151977375,
+    "keys": " ",
+    "version": "baseline"
+  },
+  {
+    "mode": "rain",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 180,
+    "observed_fps": 59.76,
+    "median_frame_ms": 17.12,
+    "p95_frame_ms": 17.86,
+    "output_bytes": 572148,
+    "output_MiB_per_second": 0.181,
+    "cpu_seconds": 0.21,
+    "rss_kib": 3216.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 3.015751453815028,
+    "keys": "",
+    "version": "candidate"
+  },
+  {
+    "mode": "spiral",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 181,
+    "observed_fps": 59.84,
+    "median_frame_ms": 17.01,
+    "p95_frame_ms": 18.21,
+    "output_bytes": 575839,
+    "output_MiB_per_second": 0.182,
+    "cpu_seconds": 0.38,
+    "rss_kib": 16656.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 3.011467311065644,
+    "keys": "",
+    "version": "candidate"
+  },
+  {
+    "mode": "plasma",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 181,
+    "observed_fps": 59.85,
+    "median_frame_ms": 16.72,
+    "p95_frame_ms": 18.59,
+    "output_bytes": 794045,
+    "output_MiB_per_second": 0.251,
+    "cpu_seconds": 0.55,
+    "rss_kib": 24592.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 3.0128417511004955,
+    "keys": "",
+    "version": "candidate"
+  },
+  {
+    "mode": "blackhole",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 181,
+    "observed_fps": 59.76,
+    "median_frame_ms": 16.61,
+    "p95_frame_ms": 18.02,
+    "output_bytes": 523027,
+    "output_MiB_per_second": 0.165,
+    "cpu_seconds": 0.47,
+    "rss_kib": 24592.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 3.015944942831993,
+    "keys": "",
+    "version": "candidate"
+  },
+  {
+    "mode": "plasma",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 173,
+    "observed_fps": 60.1,
+    "median_frame_ms": 16.51,
+    "p95_frame_ms": 27.85,
+    "output_bytes": 782033,
+    "output_MiB_per_second": 0.248,
+    "cpu_seconds": 0.53,
+    "rss_kib": 24720.0,
+    "read_limit_bytes_per_second": 524288,
+    "wall_seconds": 3.003188580973074,
+    "keys": "",
+    "version": "candidate"
+  },
+  {
+    "mode": "rain",
+    "size": [
+      160,
+      61
+    ],
+    "target_fps": 60,
+    "frames": 5,
+    "observed_fps": 79.22,
+    "median_frame_ms": 16.11,
+    "p95_frame_ms": 17.11,
+    "output_bytes": 28729,
+    "output_MiB_per_second": 0.014,
+    "cpu_seconds": 0.0,
+    "rss_kib": 1808.0,
+    "read_limit_bytes_per_second": null,
+    "wall_seconds": 2.0078100620303303,
+    "keys": " ",
+    "version": "candidate"
+  }
+]

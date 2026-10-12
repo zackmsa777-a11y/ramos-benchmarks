@@ -3,12 +3,12 @@
 Reproducible fixtures and historical evidence comparing **Ramos, C, Rust and
 Python**, plus focused Ramos before/after workloads. Part of the
 [Ramos project hub](https://github.com/zackmsa777-a11y/ramos/blob/main/docs/ecosystem.md).
-The eight-task suite now accepts the pinned **Ramos 0.19.1** compiler.
+The eight-task suite now accepts the pinned **Ramos 0.20.0** compiler.
 
 ## Validate before measuring
 
 Use Linux x64 with Python 3, GCC and Rust (`rustc`) installed. Download the
-[0.19.1 Linux compiler](https://github.com/zackmsa777-a11y/ramos/releases/tag/v0.19.1)
+[0.20.0 Linux compiler](https://github.com/zackmsa777-a11y/ramos/releases/tag/v0.20.0)
 as `ramos` and make it executable, or install it with its SHA-256 check:
 
 ```sh
@@ -68,10 +68,10 @@ Never combine unrelated versions or machines into one claimed current score.
 
 Copied fixtures, reports, JSON and images remain byte-identical to the upstream
 commit in [upstream.json](upstream.json). Two orchestration scripts and the optional plot generator are adapted: accept
-0.19, place fresh reports under `work/`, use standalone reproduction commands
+0.20, place fresh reports under `work/`, use standalone reproduction commands
 and label new reports with their actual compiler versions and host. The original
 hashes and adaptation hashes are recorded. These old measurements are not new
-0.19.1 measurements. New optimization claims require fresh data and compiler
+0.20.0 measurements. New optimization claims require fresh data and compiler
 correctness/self-hosting checks in the source repository.
 
 The compiler repository retains historical release/test copies for compatibility;
@@ -87,3 +87,9 @@ is used by the text-builder workload. No runtime backend is delegated.
 [Benchmarks](https://github.com/zackmsa777-a11y/ramos-benchmarks)
 
 Browse the shared [Ramos topic](https://github.com/topics/ramos).
+
+## rmatrix application workload
+
+[0.20.0 terminal rendering report](benchmarks/0.20.0/rmatrix/report.md) preserves
+before/after sources, raw PTY results and a self-contained reproduction runner.
+It measures application output and pacing, separately from the eight-task index.

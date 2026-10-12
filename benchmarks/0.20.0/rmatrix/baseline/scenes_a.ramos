@@ -1,0 +1,345 @@
+// rmatrix scenes, part 1: streams, stars and single-pass fields.
+// Scales: rows/heads/speeds x100, depths x100, levels x1000, hues 0..999.
+
+fn rain_init(r: Rain, w: int64, h: int64, den100: int64, rng: Rng) {
+    r.n = 0
+    let p = num_min(den100 * 92 / 100, 97)
+    for x in 0..w {
+        if rng_next(rng) % 100 < p {
+            if r.n < 320 {
+                let i = r.n
+                r.x[i] = x
+                r.head[i] = 0 - h * 80 + rng_next(rng) % (h * 240 + 1)
+                r.spd[i] = 500 + rng_next(rng) % 1400
+                let lo = 600
+                var hi = h * 90
+                if hi < 1000 {
+                    hi = 1000
+                }
+                var low2 = h * 28
+                if low2 < 600 {
+                    low2 = 600
+                }
+                r.len[i] = low2 + rng_next(rng) % (hi - low2 + 1)
+                r.dep[i] = 66 + rng_next(rng) % 35
+                r.n = r.n + 1
+            }
+        }
+        if den100 > 60 && rng_next(rng) % 100 < (den100 - 60) * 60 / 100 {
+            if r.n < 320 {
+                let j = r.n
+                r.x[j] = x
+                r.head[j] = 0 - h * 100 + rng_next(rng) % (h * 200 + 1)
+                r.spd[j] = 300 + rng_next(rng) % 400
+                var top = h * 100
+                if top < 800 {
+                    top = 800
+                }
+                r.len[j] = 500 + rng_next(rng) % (top - 500 + 1)
+                r.dep[j] = 34
+                r.n = r.n + 1
+            }
+        }
+    }
+}
+
+fn rain_update(r: Rain, h: int64, dt100: int64, fall: bool, t100: int64, l: Lut, rng: Rng) {
+    for s in 0..r.n {
+        var flow = 1000
+        if fall {
+            let n = (t100 * 2446 + r.x[s] * 32600) / 10000
+            flow = 1150 + sin256(l, n) * 200 / 1000
+        }
+        r.head[s] = r.head[s] + dt100 * r.spd[s] * flow / 100000
+        if r.head[s] - r.len[s] > h * 100 {
+            let over = r.head[s] - r.len[s] - h * 100
+            let span = h * 100 + r.len[s]
+            r.head[s] = 0 - 100 + over % span
+            r.spd[s] = 500 + rng_next(rng) % 1400
+        }
+    }
+}
+
+fn rain_draw(g: Grid, r: Rain, a: Alpha, gly: int64, salt: int64, t100: int64) {
+    let t7 = t100 * 7 / 100
+    for s in 0..r.n {
+        let x = r.x[s]
+        let end = r.head[s] / 100
+        if end >= 0 {
+            let rem = r.head[s] - r.len[s]
+            var start = 0
+            if rem > 0 {
+                start = (rem + 99) / 100
+            }
+            var hi = end
+            if hi > g.h - 1 {
+                hi = g.h - 1
+            }
+            if start <= hi {
+                for y in start..hi + 1 {
+                    let d = r.head[s] - y * 100
+                    var lv = r.dep[s] * 10
+                    if y != end {
+                        let lin = (r.len[s] - d) * 1000 / r.len[s]
+                        lv = lin * lin / 1000 * 780 / 1000 * r.dep[s] / 100
+                    }
+                    let hue = x * 550 / g.w + t100 * 25 / 100
+                    put(g, x, y, glyph_for(a, gly, salt, x, y, t7), lv, hue)
+                }
+            }
+        }
+    }
+}
+
+fn fall_draw(g: Grid, a: Alpha, gly: int64, salt: int64, t100: int64, l: Lut) {
+    let t7 = t100 * 28 / 100
+    for y in 0..g.h {
+        for x in 0..g.w {
+            let arg = x * 160 + y * 45 - t100 * 21 / 2
+            let s = sin256(l, arg * 40744 / 1000000)
+            if s > 300 {
+                let layer = (s - 300) / 2
+                if layer > 30 && hash_mix(x + y * 79) % 5 < 3 {
+                    let hue = x * 1000 / g.w + t100 * 20 / 1000
+                    put(g, x, y, glyph_for(a, gly, salt + 131, x, y, t7), layer, hue)
+                }
+            }
+        }
+    }
+}
+
+fn glitch_update(gl: Glitch, w: int64, h: int64, t100: int64, rng: Rng) {
+    if t100 >= gl.next100 {
+        let y = rng_next(rng) % h
+        let bh = 1 + rng_next(rng) % 4
+        var y1 = y + bh
+        if y1 > h {
+            y1 = h
+        }
+        gl.y0 = y
+        gl.y1 = y1
+        gl.sh = rng_next(rng) % 19 - 9
+        gl.end100 = t100 + 8 + rng_next(rng) % 8
+        gl.next100 = t100 + 70 + rng_next(rng) % 170
+    }
+}
+
+fn glitch_band(g: Grid, gl: Glitch, a: Alpha, gly: int64, salt: int64, t100: int64) {
+    if t100 >= gl.end100 {
+        return
+    }
+    var k = gl.sh % g.w
+    if k < 0 {
+        k = k + g.w
+    }
+    let t7 = t100 * 7 / 100
+    for y in gl.y0..gl.y1 {
+        if k != 0 {
+            let tmp = array(int64, 160, 0)
+            for x in 0..g.w {
+                tmp[x] = g.g[y * g.w + x]
+            }
+            for x2 in 0..g.w {
+                var src = x2 - k
+                if src < 0 {
+                    src = src + g.w
+                }
+                g.g[y * g.w + x2] = tmp[src]
+            }
+            for x3 in 0..g.w {
+                tmp[x3] = g.l[y * g.w + x3]
+            }
+            for x4 in 0..g.w {
+                var src2 = x4 - k
+                if src2 < 0 {
+                    src2 = src2 + g.w
+                }
+                g.l[y * g.w + x4] = tmp[src2]
+            }
+            for x5 in 0..g.w {
+                tmp[x5] = g.u[y * g.w + x5]
+            }
+            for x6 in 0..g.w {
+                var src3 = x6 - k
+                if src3 < 0 {
+                    src3 = src3 + g.w
+                }
+                g.u[y * g.w + x6] = tmp[src3]
+            }
+        }
+        for x7 in 0..g.w {
+            let i = y * g.w + x7
+            g.u[i] = (g.u[i] + 150) % 1000
+            if hash_mix(x7 + y * 101 + salt) % 23 == 0 {
+                g.g[i] = glyph_for(a, gly, salt, x7, y, t7)
+                g.l[i] = 800
+                g.u[i] = 600
+            }
+        }
+    }
+}
+
+fn stars_init(s: Stars, w: int64, h: int64, den100: int64, rng: Rng) {
+    var n = w * h * den100 / 1000
+    if n < 12 {
+        n = 12
+    }
+    if n > 1500 {
+        n = 1500
+    }
+    s.n = n
+    for i in 0..n {
+        s.x[i] = rng_next(rng) % (w * 200 + 1) * 100 - w * 10000
+        s.y[i] = rng_next(rng) % (h * 200 + 1) * 100 - h * 10000
+        s.z[i] = 100 + rng_next(rng) % 901
+        s.v[i] = 90 + rng_next(rng) % 171
+        s.tn[i] = 0
+        s.za[i] = 0
+    }
+}
+
+fn stars_update(s: Stars, w: int64, h: int64, dt100: int64, rng: Rng) {
+    for i in 0..s.n {
+        s.za[i] = s.za[i] + dt100 * s.v[i]
+        s.z[i] = s.z[i] - s.za[i] / 100000
+        s.za[i] = s.za[i] % 100000
+        var dead = false
+        if s.z[i] <= 40 {
+            dead = true
+        } else {
+            let px = w * 50 + s.x[i] * 230 / s.z[i]
+            let py = h * 50 + s.y[i] * 230 / s.z[i]
+            let cx = px / 100
+            let cy = py / 100
+            if cx < 0 || cy < 0 || cx >= w || cy >= h {
+                dead = true
+            } else {
+                let base = i * 6
+                let has = s.tn[i] > 0
+                var same = false
+                if has && s.tx[base + s.tn[i] - 1] == cx && s.ty[base + s.tn[i] - 1] == cy {
+                    same = true
+                }
+                if !same {
+                    if s.tn[i] == 6 {
+                        for j in 0..5 {
+                            s.tx[base + j] = s.tx[base + j + 1]
+                            s.ty[base + j] = s.ty[base + j + 1]
+                        }
+                    } else {
+                        s.tn[i] = s.tn[i] + 1
+                    }
+                    s.tx[base + s.tn[i] - 1] = cx
+                    s.ty[base + s.tn[i] - 1] = cy
+                }
+            }
+        }
+        if dead {
+            s.x[i] = rng_next(rng) % (w * 200 + 1) * 100 - w * 10000
+            s.y[i] = rng_next(rng) % (h * 200 + 1) * 100 - h * 10000
+            s.z[i] = 1000
+            s.v[i] = 90 + rng_next(rng) % 171
+            s.tn[i] = 0
+            s.za[i] = 0
+        }
+    }
+}
+
+fn starfield_draw(g: Grid, s: Stars, a: Alpha, gly: int64, salt: int64, t100: int64) {
+    let t7 = t100 * 7 / 100
+    for i in 0..s.n {
+        let level = 140 + (1000 - s.z[i]) * 86 / 100
+        let hue = i * 1000 / s.n + t100 * 25 / 1000
+        let base = i * 6
+        var p = 450
+        for j in 0..s.tn[i] - 1 {
+            let tx = s.tx[base + j]
+            let ty = s.ty[base + j]
+            var ch = 46
+            if gly != 0 {
+                ch = glyph_for(a, gly, salt, i, j + 1, t7)
+            }
+            put(g, tx, ty, ch, level * p / 1000, hue)
+            p = p * 450 / 1000
+        }
+        if s.tn[i] > 0 {
+            let hx = s.tx[base + s.tn[i] - 1]
+            let hy = s.ty[base + s.tn[i] - 1]
+            var hc = 42
+            if gly == 0 {
+                hc = 46
+                if level >= 450 {
+                    hc = 43
+                }
+                if level >= 760 {
+                    hc = 42
+                }
+            } else {
+                hc = glyph_for(a, gly, salt, i, 0, t7)
+            }
+            put(g, hx, hy, hc, level, hue)
+        }
+    }
+}
+
+fn waves_draw(g: Grid, a: Alpha, gly: int64, salt: int64, t100: int64, l: Lut, den100: int64) {
+    let threshold = 540 - den100 * 18 / 10
+    let span = 1000 - threshold
+    let t7 = t100 * 245 / 10000
+    for y in 0..g.h {
+        for x in 0..g.w {
+            let dx = (x * 2 - g.w) * 26
+            let dy = (y * 2 - g.h) * 50
+            let r = hypo(num_abs(dx), num_abs(dy))
+            let arg1 = r * 36 / 10 - t100 * 115 / 100
+            let arg2 = x * 90 + y * 200 + t100 * 8
+            let v = (sin256(l, arg1 * 40744 / 1000000) * 1000 + sin256(l, arg2 * 40744 / 1000000) * 480) / 1480
+            var av = v
+            if av < 0 {
+                av = 0 - av
+            }
+            if av > threshold {
+                let lin = (av - threshold) * 1000 / span
+                let lv = (lin + lin * lin / 1000) / 2
+                var ch = 0
+                if gly != 0 || lv > 700 {
+                    ch = glyph_for(a, gly, salt, x, y, t7)
+                } else {
+                    ch = buffer_get(".:+=*", lv * 5 / 1000)
+                }
+                put(g, x, y, ch, lv, r * 12 / 1000 + t100 * 20 / 1000)
+            }
+        }
+    }
+}
+
+fn spiral_draw(g: Grid, a: Alpha, gly: int64, salt: int64, t100: int64, l: Lut, den100: int64) {
+    let threshold = 790 - den100 * 22 / 10
+    let span = 1000 - threshold
+    let t7 = t100 * 28 / 10000
+    for y in 0..g.h {
+        for x in 0..g.w {
+            let dx = (x * 2 - g.w + 1) * 26
+            let dy = (y * 2 - g.h + 1) * 50
+            let r = hypo(num_abs(dx), num_abs(dy))
+            let sec = ang256(l, dx, dy)
+            let n = sec * 3 - r * 11 / 1000 + t100 * 3585 / 10000
+            let c = sin256(l, n + 64)
+            if c > threshold {
+                let ridge = (c - threshold) * 1000 / span
+                var gate = r * 4 + 200
+                if gate > 1000 {
+                    gate = 1000
+                }
+                let lv = ridge * gate / 1000
+                var ch = 0
+                if gly != 0 || lv > 700 {
+                    ch = glyph_for(a, gly, salt, x, y, t7)
+                } else {
+                    ch = buffer_get(".:+*", lv * 4 / 1000)
+                }
+                put(g, x, y, ch, lv, sec * 1000 / 256 + r / 10 + t100 * 20 / 1000)
+            }
+        }
+    }
+}

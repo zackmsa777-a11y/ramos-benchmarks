@@ -1,0 +1,570 @@
+weave "tui.ramos"
+weave "numbers.ramos"
+
+// rmatrix core: state structs, overflow-safe hash/RNG, integer sin table,
+// polar helpers, palette mapping, glyph picker, CLI number parsing.
+
+struct Lut { s: [int64], a: [int64] }
+struct Alpha { m: bytes, b: bytes, h: bytes }
+struct Grid { w: int64, h: int64, g: [int64], l: [int64], u: [int64], tmp: [int64] }
+struct Rain { n: int64, x: [int64], head: [int64], spd: [int64], len: [int64], dep: [int64] }
+struct Stars { n: int64, x: [int64], y: [int64], z: [int64], v: [int64], tn: [int64], za: [int64], tx: [int64], ty: [int64] }
+struct Glitch { end100: int64, y0: int64, y1: int64, sh: int64, next100: int64 }
+struct Hist { g: [int64], l: [int64], u: [int64] }
+struct Cfg { mode: int64, pal: int64, gly: int64, den100: int64, spd100: int64, fps: int64, seed: int64 }
+struct UI { echo: bool, pulse: bool, scan: bool, hud: bool, help: bool, pick: bool, sig: bool, demo: bool, paused: bool, run: bool, sel: int64, demot: int64 }
+struct Clk { t100: int64, acc: int64, tick: int64 }
+struct Rng { s: int64 }
+struct Row { b: bytes, n: int64 }
+struct Paint { glyph: [int64], code: [int64], valid: bool, hud: string }
+fn matrix_clock() -> int64 {
+    let now = monotonic_ms()
+    if io_error() != 0 { tui_end()
+        stderr("rmatrix: monotonic clock failed\n")
+        exit(1) }
+    return now
+}
+
+// LCG with a 2^31 modulus; the product stays far below int64 overflow.
+fn rng_next(r: Rng) -> int64 {
+    r.s = (r.s * 1103515245 + 12345) % 2147483648
+    return r.s
+}
+
+fn rng_seed(value: int64) -> Rng {
+    var s = value % 2147483648
+    if s < 0 {
+        s = s + 2147483648
+    }
+    if s == 0 {
+        s = 987654321
+    }
+    return Rng(s)
+}
+
+// Mixing hash built only from +, *, / and % so checked arithmetic never traps.
+fn hash_mix(x: int64) -> int64 {
+    var h = x % 2147483648
+    if h < 0 {
+        h = h + 2147483648
+    }
+    h = (h * 1103515245 + 12345) % 2147483648
+    h = (h * 1664525 + 1013904223) % 2147483648
+    h = (h + h / 7 + 123456789) % 2147483648
+    h = (h * 22695477 + 11) % 2147483648
+    h = (h + h / 13 + 987654321) % 2147483648
+    return h
+}
+
+fn unit1000(h: int64) -> int64 {
+    return h * 1000 / 2147483648
+}
+
+// Integer square root by Newton iteration; inputs here stay below 2^31.
+fn isqrt(n: int64) -> int64 {
+    if n <= 0 {
+        return 0
+    }
+    var g = (n + 1) / 2
+    for i in 0..12 {
+        g = (g + n / g) / 2
+    }
+    return g
+}
+
+// Bhaskara I sine approximation on 0..3142 milliradians, result scaled by 1000.
+fn bsin(x: int64) -> int64 {
+    let prod = x * (3142 - x)
+    let num = 16 * prod
+    let den = 5 * 3142 * 3142 - 4 * prod
+    return 1000 * num / den
+}
+
+fn lut_build(l: Lut) {
+    for i in 1..64 {
+        let s = bsin(i * 3142 / 128)
+        l.s[i] = s
+        l.s[128 - i] = s
+        l.s[128 + i] = 0 - s
+        l.s[256 - i] = 0 - s
+    }
+    l.s[0] = 0
+    l.s[64] = 1000
+    l.s[128] = 0
+    l.s[192] = 0 - 1000
+    l.a[0] = 0
+    l.a[1] = 1
+    l.a[2] = 1
+    l.a[3] = 2
+    l.a[4] = 3
+    l.a[5] = 3
+    l.a[6] = 4
+    l.a[7] = 4
+    l.a[8] = 5
+    l.a[9] = 6
+    l.a[10] = 6
+    l.a[11] = 7
+    l.a[12] = 8
+    l.a[13] = 8
+    l.a[14] = 9
+    l.a[15] = 9
+    l.a[16] = 10
+    l.a[17] = 11
+    l.a[18] = 11
+    l.a[19] = 12
+    l.a[20] = 12
+    l.a[21] = 13
+    l.a[22] = 13
+    l.a[23] = 14
+    l.a[24] = 15
+    l.a[25] = 15
+    l.a[26] = 16
+    l.a[27] = 16
+    l.a[28] = 17
+    l.a[29] = 17
+    l.a[30] = 18
+    l.a[31] = 18
+    l.a[32] = 19
+    l.a[33] = 19
+    l.a[34] = 20
+    l.a[35] = 20
+    l.a[36] = 21
+    l.a[37] = 21
+    l.a[38] = 22
+    l.a[39] = 22
+    l.a[40] = 23
+    l.a[41] = 23
+    l.a[42] = 24
+    l.a[43] = 24
+    l.a[44] = 25
+    l.a[45] = 25
+    l.a[46] = 25
+    l.a[47] = 26
+    l.a[48] = 26
+    l.a[49] = 27
+    l.a[50] = 27
+    l.a[51] = 27
+    l.a[52] = 28
+    l.a[53] = 28
+    l.a[54] = 29
+    l.a[55] = 29
+    l.a[56] = 29
+    l.a[57] = 30
+    l.a[58] = 30
+    l.a[59] = 30
+    l.a[60] = 31
+    l.a[61] = 31
+    l.a[62] = 31
+    l.a[63] = 32
+    l.a[64] = 32
+}
+
+// Table lookup; n counts 1/256-turn steps and wraps on any sign.
+fn sin256(l: Lut, n: int64) -> int64 {
+    var i = n % 256
+    if i < 0 {
+        i = i + 256
+    }
+    return l.s[i]
+}
+
+// Angle sector 0..31 from a delta without atan2; 0 is east, clockwise on screen.
+fn ang32(dx: int64, dy: int64) -> int64 {
+    if dx == 0 && dy == 0 {
+        return 0
+    }
+    let ax = num_abs(dx)
+    let ay = num_abs(dy)
+    var base = 0
+    if dx >= 0 && dy >= 0 {
+        base = 0
+    } else {
+        if dx < 0 && dy >= 0 {
+            base = 8
+        } else {
+            if dx < 0 && dy < 0 {
+                base = 16
+            } else {
+                base = 24
+            }
+        }
+    }
+    var top = ax
+    var bot = ay
+    if ay > ax {
+        top = ay
+        bot = ax
+    }
+    let t = bot * 1000 / top
+    var k = 0
+    if t < 199 {
+        k = 0
+    } else {
+        if t < 414 {
+            k = 1
+        } else {
+            if t < 668 {
+                k = 2
+            } else {
+                k = 3
+            }
+        }
+    }
+    if ax >= ay {
+        return base + k
+    }
+    return base + 7 - k
+}
+
+// Fine angle 0..255 from a delta: quadrant base plus slope interpolation.
+// Counts 1/256-turn steps clockwise from east on screen, matching sin256.
+fn ang256(l: Lut, dx: int64, dy: int64) -> int64 {
+    if dx == 0 && dy == 0 {
+        return 0
+    }
+    var ax = dx
+    if ax < 0 {
+        ax = 0 - ax
+    }
+    var ay = dy
+    if ay < 0 {
+        ay = 0 - ay
+    }
+    var quad = 0
+    var along = ax
+    var away = ay
+    if dx >= 0 && dy >= 0 {
+        quad = 0
+        along = ax
+        away = ay
+    } else {
+        if dx < 0 && dy >= 0 {
+            quad = 64
+            along = ay
+            away = ax
+        } else {
+            if dx < 0 && dy < 0 {
+                quad = 128
+                along = ax
+                away = ay
+            } else {
+                quad = 192
+                along = ay
+                away = ax
+            }
+        }
+    }
+    var off = 0
+    if along >= away {
+        off = l.a[away * 64 / along]
+    } else {
+        off = 64 - l.a[along * 64 / away]
+    }
+    var a = quad + off
+    if a > 255 {
+        a = a - 256
+    }
+    if a < 0 {
+        a = a + 256
+    }
+    return a
+}
+
+// Alpha-max plus beta-min hypotenuse approximation, scaled inputs stay scaled.
+fn hypo(ax: int64, ay: int64) -> int64 {
+    if ax >= ay {
+        return ax + ay * 3 / 8
+    }
+    return ay + ax * 3 / 8
+}
+
+// Palette base ANSI color 0..7; rainbow and sunset derive from hue 0..999.
+fn hue6(h: int64) -> int64 {
+    return h % 1000 * 6 / 1000 + 1
+}
+
+fn pal_base(p: int64, hue1000: int64) -> int64 {
+    if p == 0 {
+        return 2
+    }
+    if p == 1 {
+        return 6
+    }
+    if p == 2 {
+        return 5
+    }
+    if p == 3 {
+        return 3
+    }
+    if p == 4 {
+        return hue6(hue1000)
+    }
+    if p == 5 {
+        return 1
+    }
+    if p == 6 {
+        return 7
+    }
+    if hue1000 % 1000 < 500 {
+        return 1
+    }
+    return 3
+}
+
+// Packs blank(0) or fg + 8*bold + 16*faint for the row emitter.
+// Hue must already be normalized to 0..999 (put and the banner do this).
+fn cell_code(pal: int64, level1000: int64, hue1000: int64) -> int64 {
+    if level1000 < 40 {
+        return 0
+    }
+    let base = pal_base(pal, hue1000)
+    if level1000 >= 850 {
+        return 15
+    }
+    if level1000 >= 400 {
+        return base + 8
+    }
+    if level1000 >= 150 {
+        return base
+    }
+    return base + 16
+}
+
+fn grid_clear(g: Grid) {
+    for i in 0..g.w * g.h {
+        g.g[i] = 32
+        g.l[i] = 0
+        g.u[i] = 0
+    }
+}
+
+fn put(g: Grid, x: int64, y: int64, ch: int64, level: int64, hue: int64) {
+    if x < 0 || y < 0 || x >= g.w || y >= g.h {
+        return
+    }
+    if level <= 25 {
+        return
+    }
+    let i = y * g.w + x
+    if level < g.l[i] {
+        return
+    }
+    var h = hue % 1000
+    if h < 0 {
+        h = h + 1000
+    }
+    var lv = level
+    if lv > 1000 {
+        lv = 1000
+    }
+    g.g[i] = ch
+    g.l[i] = lv
+    g.u[i] = h
+}
+
+fn glyph_for(a: Alpha, set: int64, salt: int64, x: int64, y: int64, t7: int64) -> int64 {
+    let h = hash_mix(salt + x * 7919 + y * 104729 + t7)
+    if set == 1 {
+        return buffer_get(a.b, h % 2)
+    }
+    if set == 2 {
+        return buffer_get(a.h, h % 16)
+    }
+    return buffer_get(a.m, h % 46)
+}
+
+// Parses a non-negative decimal into hundredths; -1 signals invalid input.
+fn parse100(text: bytes) -> int64 {
+    if buffer_len(text) == 0 {
+        return -1
+    }
+    let dot = bytes_find(text, ".")
+    if dot < 0 {
+        let v = text_to_int(text)
+        if parse_error() != 0 {
+            return -1
+        }
+        if v < 0 {
+            return -1
+        }
+        return v * 100
+    }
+    if dot == 0 {
+        return -1
+    }
+    let ip = text_to_int(bytes_slice(text, 0, dot))
+    if parse_error() != 0 {
+        return -1
+    }
+    if ip < 0 {
+        return -1
+    }
+    let tail = buffer_len(text) - dot - 1
+    if tail < 1 || tail > 2 {
+        return -1
+    }
+    var fv = text_to_int(bytes_slice(text, dot + 1, buffer_len(text)))
+    if parse_error() != 0 {
+        return -1
+    }
+    if fv < 0 {
+        return -1
+    }
+    if tail == 1 {
+        fv = fv * 10
+    }
+    return ip * 100 + fv
+}
+
+fn mode_name(m: int64) -> string {
+    if m == 0 {
+        return s"rain"
+    }
+    if m == 1 {
+        return s"waterfall"
+    }
+    if m == 2 {
+        return s"waves"
+    }
+    if m == 3 {
+        return s"spiral"
+    }
+    if m == 4 {
+        return s"glitch"
+    }
+    if m == 5 {
+        return s"starfield"
+    }
+    if m == 6 {
+        return s"blackhole"
+    }
+    if m == 7 {
+        return s"galaxy"
+    }
+    if m == 8 {
+        return s"aurora"
+    }
+    if m == 9 {
+        return s"plasma"
+    }
+    if m == 10 {
+        return s"tunnel"
+    }
+    return s"fireworks"
+}
+
+fn pal_name(p: int64) -> string {
+    if p == 0 {
+        return s"emerald"
+    }
+    if p == 1 {
+        return s"cyan"
+    }
+    if p == 2 {
+        return s"violet"
+    }
+    if p == 3 {
+        return s"amber"
+    }
+    if p == 4 {
+        return s"rainbow"
+    }
+    if p == 5 {
+        return s"rose"
+    }
+    if p == 6 {
+        return s"ice"
+    }
+    return s"sunset"
+}
+
+fn gly_name(g: int64) -> string {
+    if g == 0 {
+        return s"matrix"
+    }
+    if g == 1 {
+        return s"binary"
+    }
+    return s"hex"
+}
+
+fn mode_parse(text: bytes) -> int64 {
+    if bytes_equal(text, "rain") {
+        return 0
+    }
+    if bytes_equal(text, "waterfall") {
+        return 1
+    }
+    if bytes_equal(text, "waves") {
+        return 2
+    }
+    if bytes_equal(text, "spiral") {
+        return 3
+    }
+    if bytes_equal(text, "glitch") {
+        return 4
+    }
+    if bytes_equal(text, "starfield") {
+        return 5
+    }
+    if bytes_equal(text, "blackhole") {
+        return 6
+    }
+    if bytes_equal(text, "galaxy") {
+        return 7
+    }
+    if bytes_equal(text, "aurora") {
+        return 8
+    }
+    if bytes_equal(text, "plasma") {
+        return 9
+    }
+    if bytes_equal(text, "tunnel") {
+        return 10
+    }
+    if bytes_equal(text, "fireworks") {
+        return 11
+    }
+    return -1
+}
+
+fn pal_parse(text: bytes) -> int64 {
+    if bytes_equal(text, "emerald") {
+        return 0
+    }
+    if bytes_equal(text, "cyan") {
+        return 1
+    }
+    if bytes_equal(text, "violet") {
+        return 2
+    }
+    if bytes_equal(text, "amber") {
+        return 3
+    }
+    if bytes_equal(text, "rainbow") {
+        return 4
+    }
+    if bytes_equal(text, "rose") {
+        return 5
+    }
+    if bytes_equal(text, "ice") {
+        return 6
+    }
+    if bytes_equal(text, "sunset") {
+        return 7
+    }
+    return -1
+}
+
+fn gly_parse(text: bytes) -> int64 {
+    if bytes_equal(text, "matrix") {
+        return 0
+    }
+    if bytes_equal(text, "binary") {
+        return 1
+    }
+    if bytes_equal(text, "hex") {
+        return 2
+    }
+    return -1
+}

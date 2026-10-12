@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/zackmsa777-a11y/ramos",
-  "version": "0.19.1",
-  "commit": "6c263c5023bc8a71c036d9b8151b82dc558adfde",
+  "version": "0.20.0",
+  "commit": "5778cee06f3e95d5bd178ac7aa5a44c6cd19bc4e",
   "files": [
     {
       "path": "benchmarks/0.14.0/range/for.ramos",
@@ -318,8 +318,8 @@
   ],
   "adaptations": {
     "benchmarks/run_suite.py": {
-      "reason": "Accept validated Ramos 0.19, use work/ output defaults and repository-appropriate report links/setup.",
-      "sha256": "24be7dd3646a283d77aebd67c7a39c58f54e30cdd61016ef294dcc6fc3a14bfd"
+      "reason": "Accept validated Ramos 0.20, use work/ output defaults and repository-appropriate report links/setup.",
+      "sha256": "73beddcc15209cf7697effee120ed8f3f2c9f943600db22d932ce9510e21d176"
     },
     "benchmarks/compare_versions.py": {
       "reason": "Use work/ output defaults, report actual compiler versions and host, record baseline hash and fix standalone reproduction commands.",

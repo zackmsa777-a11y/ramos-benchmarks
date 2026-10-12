@@ -1,0 +1,239 @@
+weave "common.ramos"
+
+// rmatrix output: ANSI row emitter plus HUD, help and picker overlays.
+
+fn row_reset(r: Row) {
+    r.n = 0
+}
+
+fn row_byte(r: Row, b: int64) {
+    buffer_set(r.b, r.n, b)
+    r.n = r.n + 1
+}
+
+fn row_esc(r: Row, code: int64) {
+    row_byte(r, 27)
+    row_byte(r, 91)
+    if code == 0 {
+        row_byte(r, 48)
+        row_byte(r, 109)
+        return
+    }
+    let bold = code / 8 % 2
+    let faint = code / 16
+    if bold == 1 {
+        row_byte(r, 49)
+    } else {
+        if faint == 1 {
+            row_byte(r, 50)
+        } else {
+            row_byte(r, 48)
+        }
+    }
+    row_byte(r, 59)
+    row_byte(r, 51)
+    row_byte(r, 48 + code % 8)
+    row_byte(r, 109)
+}
+
+fn row_str(r: Row, s: string) {
+    let b = to_bytes(s)
+    for i in 0..buffer_len(b) {
+        row_byte(r, buffer_get(b, i))
+    }
+}
+
+fn row_num(r: Row, v: int64) {
+    if v >= 100 {
+        row_byte(r, 48 + v / 100)
+        row_byte(r, 48 + v / 10 % 10)
+        row_byte(r, 48 + v % 10)
+        return
+    }
+    if v >= 10 {
+        row_byte(r, 48 + v / 10)
+        row_byte(r, 48 + v % 10)
+        return
+    }
+    row_byte(r, 48 + v)
+}
+
+fn out_move(r: Row, row: int64, col: int64) {
+    row_byte(r, 27)
+    row_byte(r, 91)
+    row_num(r, row)
+    row_byte(r, 59)
+    row_num(r, col)
+    row_byte(r, 72)
+}
+
+fn row_done(r: Row) -> string {
+    return string(bytes_slice(r.b, 0, r.n))
+}
+
+fn hist_clear(h: Hist, n: int64) {
+    for i in 0..n {
+        h.g[i] = 32
+        h.l[i] = 0
+        h.u[i] = 0
+    }
+}
+
+// Draws every grid row with echo/pulse/scanlines applied and stores history.
+fn emit_grid(g: Grid, c: Cfg, u: UI, h: Hist, r: Row, l: Lut, dt100: int64, t100: int64) {
+    var mult = 1000
+    if u.pulse {
+        mult = 780 + sin256(l, t100 * 10594 / 10000) * 220 / 1000
+    }
+    var dec = 1000 - dt100 * 25
+    if dec < 0 {
+        dec = 0
+    }
+    for y in 0..g.h {
+        out_move(r, y + 1, 1)
+        var cur = 0 - 1
+        for x in 0..g.w {
+            let i = y * g.w + x
+            var lvl = g.l[i]
+            var ch = g.g[i]
+            var hu = g.u[i]
+            if u.echo {
+                let hl = h.l[i] * dec / 1000
+                if hl > 25 && hl > lvl {
+                    lvl = hl
+                    ch = h.g[i]
+                    hu = h.u[i]
+                }
+            }
+            h.g[i] = g.g[i]
+            h.l[i] = g.l[i]
+            h.u[i] = g.u[i]
+            if mult != 1000 {
+                lvl = lvl * mult / 1000
+            }
+            if u.scan && y % 2 == 1 {
+                lvl = lvl * 48 / 100
+            }
+            let code = cell_code(c.pal, lvl, hu)
+            if code != cur {
+                row_esc(r, code)
+                cur = code
+            }
+            if code == 0 {
+                row_byte(r, 32)
+            } else {
+                row_byte(r, ch)
+            }
+        }
+    }
+    row_esc(r, 0)
+    tui_write(row_done(r))
+}
+
+fn speed_text(spd100: int64) -> string {
+    return num_text(spd100 / 100) + s"." + num_text(spd100 % 100 / 10) + s"x"
+}
+
+fn den_text(den100: int64) -> string {
+    return num_text(den100 / 100) + s"." + num_text(den100 % 100 / 10)
+}
+
+fn hud_draw(w: int64, h: int64, c: Cfg, u: UI) {
+    var state = s"LIVE"
+    if u.paused {
+        state = s"PAUSED"
+    } else {
+        if u.demo {
+            state = s"DEMO"
+        }
+    }
+    var line = s" RMATRIX " + mode_name(c.mode) + s" " + pal_name(c.pal) + s" " + speed_text(c.spd100) + s" " + den_text(c.den100) + s" " + gly_name(c.gly) + s" " + state
+    if u.echo {
+        line = line + s" ECHO"
+    }
+    if u.pulse {
+        line = line + s" PULSE"
+    }
+    if u.scan {
+        line = line + s" SCAN"
+    }
+    let hints = s" Tab scenes c color ? help q quit"
+    if len(line) + len(hints) < w {
+        line = line + text_repeat(s" ", w - len(line) - len(hints)) + hints
+    }
+    if len(line) > w {
+        line = slice(line, 0, w)
+    }
+    tui_move(h, 1)
+    tui_color(6, 0)
+    tui_write(line)
+    tui_reset()
+}
+
+fn help_draw(w: int64, h: int64) {
+    let x = (w - 57) / 2 + 1
+    let y = (h - 15) / 2 + 1
+    tui_color(6, 0)
+    tui_at(y, x, s"+-------------------------------------------------------+")
+    tui_at(y + 1, x, s"|                  RMATRIX / CONTROLS                   |")
+    tui_at(y + 2, x, s"|                                                       |")
+    tui_at(y + 3, x, s"|  Tab       choose any of the twelve scenes            |")
+    tui_at(y + 4, x, s"|  1-9 / 0   quick scene selection                      |")
+    tui_at(y + 5, x, s"|  arrows/m  switch mode     c       color palette      |")
+    tui_at(y + 6, x, s"|  +/-       speed           [ ]     scene density      |")
+    tui_at(y + 7, x, s"|  g         glyph set       d       automatic demo     |")
+    tui_at(y + 8, x, s"|  e         echo trails     p       brightness pulse   |")
+    tui_at(y + 9, x, s"|  s         scanlines       r       surprise me        |")
+    tui_at(y + 10, x, s"|  n         name banner                                |")
+    tui_at(y + 11, x, s"|  space     pause           h       hide controls      |")
+    tui_at(y + 12, x, s"|  q / Esc / Ctrl+C          quit                      |")
+    tui_at(y + 13, x, s"|                                                       |")
+    tui_at(y + 14, x, s"|               ? closes this panel                   |")
+    tui_reset()
+}
+
+fn picker_row(sel: bool, idx: int64) -> string {
+    var mark = s"  "
+    if sel {
+        mark = s"> "
+    }
+    var num = num_text(idx + 1)
+    if idx < 9 {
+        num = s"0" + num
+    }
+    return s" " + mark + num + s"  " + mode_name(idx)
+}
+
+fn picker_draw(w: int64, h: int64, u: UI) {
+    var count = h - 2
+    if count > 12 {
+        count = 12
+    }
+    if count < 1 {
+        count = 1
+    }
+    var start = u.sel - count / 2
+    if start < 0 {
+        start = 0
+    }
+    if start + count > 12 {
+        start = 12 - count
+    }
+    let bw = 22
+    let x = (w - bw) / 2 + 1
+    let y = (h - count - 2) / 2 + 1
+    tui_color(2, 0)
+    tui_at(y, x, s" RMATRIX / SCENES")
+    for r in 0..count {
+        let idx = start + r
+        if idx == u.sel {
+            tui_color(2, 0)
+        } else {
+            tui_color(6, 0)
+        }
+        tui_at(y + 1 + r, x, picker_row(idx == u.sel, idx))
+    }
+    tui_color(6, 0)
+    tui_at(y + 1 + count, x, s" Up/Dn pick Enter play")
+    tui_reset()
+}

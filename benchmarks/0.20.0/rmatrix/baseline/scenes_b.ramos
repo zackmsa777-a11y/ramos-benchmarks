@@ -1,0 +1,320 @@
+weave "common.ramos"
+
+// rmatrix scenes, part 2: polar and procedural scenes.
+// Same fixed-point scales as part 1. Spacings that need log/exp/pow in the
+// original use rational stand-ins; the look stays close at 8 colors.
+
+fn polar_dx(x: int64, w: int64) -> int64 {
+    return (x * 2 - w + 1) * 26
+}
+
+fn polar_dy(y: int64, h: int64) -> int64 {
+    return (y * 2 - h + 1) * 50
+}
+
+fn blackhole_draw(g: Grid, a: Alpha, gly: int64, salt: int64, t100: int64, l: Lut, den100: int64) {
+    var core = g.h * 10
+    if core < 120 {
+        core = 120
+    }
+    let div = 750 + den100 * 4
+    let thr = 820 - den100 * 2
+    let span = 1000 - thr
+    let t7 = t100 * 245 / 10000
+    for s in 0..256 {
+        g.tmp[s] = sin256(l, s + 64)
+    }
+    for y in 0..g.h {
+        for x in 0..g.w {
+            let dx = polar_dx(x, g.w)
+            let dy = polar_dy(y, g.h)
+            let r = hypo(num_abs(dx), num_abs(dy))
+            if r >= core {
+                let ratio = (r - core * 21 / 10) * 1000 / div
+                let disc = 10000000 / (10000 + ratio * ratio)
+                let sec = ang256(l, dx, dy)
+                let wnd = sin256(l, sec * 3 - r * 28 / 1250 + t100 * 5297 / 10000 + 64)
+                var arm = 0
+                if wnd > thr {
+                    arm = (wnd - thr) * 1000 / 380
+                    if arm > 1000 {
+                        arm = 1000
+                    }
+                }
+                let fall = 1000000 / (1000 + r * 1000 / (g.h * 85))
+                let term1 = disc * (820 + g.tmp[sec] * 180 / 1000) / 1000
+                var lv = term1 + arm * fall * 750 / 1000000
+                if lv > 1000 {
+                    lv = 1000
+                }
+                if lv > 25 {
+                    var ch = 0
+                    if gly != 0 || lv > 700 {
+                        ch = glyph_for(a, gly, salt, x, y, t7)
+                    } else {
+                        ch = buffer_get(".:+=*", lv * 5 / 1000)
+                    }
+                    put(g, x, y, ch, lv, sec * 1000 / 256 + r * 30 / 100)
+                }
+            }
+        }
+    }
+}
+
+fn galaxy_draw(g: Grid, a: Alpha, gly: int64, salt: int64, t100: int64, l: Lut, den100: int64) {
+    var count = g.w * g.h * 22 * den100 / 100000
+    if count < 12 {
+        count = 12
+    }
+    var radius = g.h * 45
+    let alt = g.w * 24
+    if alt < radius {
+        radius = alt
+    }
+    if radius < 100 {
+        radius = 100
+    }
+    let t7 = t100 * 28 / 10000
+    for i in 0..count {
+        let u1 = unit1000(hash_mix(salt + i * 3))
+        let r = isqrt(u1 * 1000) * radius / 1000
+        let u2 = unit1000(hash_mix(salt + i * 3 + 1))
+        let scatter = (u2 - 500) * 95 / 100
+        let n = (i % 3) * 256 / 3 + r * 815 / 10000 + t100 * 652 / 10000 + scatter * 256 / 1000
+        let x100 = (g.w - 1) * 50 + sin256(l, n + 64) * r / 520
+        let y100 = (g.h - 1) * 50 + sin256(l, n) * r / 1000
+        let u3 = unit1000(hash_mix(salt + i * 3 + 2))
+        var lv = 250 + u3 * 65 / 100 + (radius - r) * 150 / radius
+        if lv > 1000 {
+            lv = 1000
+        }
+        var ch = 0
+        if gly == 0 {
+            ch = 46
+            if lv >= 350 {
+                ch = 43
+            }
+            if lv >= 700 {
+                ch = 42
+            }
+        } else {
+            ch = glyph_for(a, gly, salt, i, 0, t7)
+        }
+        put(g, (x100 + 50) / 100, (y100 + 50) / 100, ch, lv, r * 600 / radius + t100 * 20 / 1000)
+    }
+    var cc = 42
+    if gly != 0 {
+        cc = glyph_for(a, gly, salt, 0, 0, t7)
+    }
+    put(g, g.w / 2, g.h / 2, cc, 1000, 100)
+}
+
+fn aurora_draw(g: Grid, a: Alpha, gly: int64, salt: int64, t100: int64, l: Lut, den100: int64) {
+    let t7 = t100 * 245 / 10000
+    let huet = t100 * 25 / 1000
+    let spread_up = 100 + den100 * 12 / 10
+    let spread_dn = 200 + den100 * 30 / 10
+    for x in 0..g.w {
+        let n1 = x * 410 / g.w + t100 * 1426 / 10000
+        let n2 = x * 1024 / g.w - t100 * 2037 / 10000
+        let c = 380 + sin256(l, n1) * 140 / 1000 + sin256(l, n2) * 60 / 1000
+        let center = g.h * c / 10
+        let n3 = x * 896 / g.w + t100 * 3260 / 10000
+        var s3 = sin256(l, n3)
+        if s3 < 0 {
+            s3 = 0 - s3
+        }
+        let curtain = 500 + s3 / 2
+        let huebase = x * 500 / g.w
+        for y in 0..g.h {
+            let d = y * 100 - center
+            var spread = spread_dn
+            if d < 0 {
+                spread = spread_up
+            }
+            var ad = d
+            if ad < 0 {
+                ad = 0 - ad
+            }
+            let q = ad * 1000 / spread
+            let glow = 1000000 / (1000 + q * q / 1000)
+            let lv = glow * curtain / 1000
+            if lv > 25 {
+                var ch = 0
+                if gly != 0 || lv > 700 {
+                    ch = glyph_for(a, gly, salt, x, y, t7)
+                } else {
+                    ch = buffer_get(".:+=*", lv * 5 / 1000)
+                }
+                put(g, x, y, ch, lv, huebase + huet)
+            }
+        }
+    }
+}
+
+fn plasma_draw(g: Grid, a: Alpha, gly: int64, salt: int64, t100: int64, l: Lut, den100: int64) {
+    let t7 = t100 * 245 / 10000
+    let huet = t100 * 50 / 1000
+    for x in 0..g.w {
+        let dx = x * 14
+        g.tmp[x] = sin256(l, (dx * 140 + t100 * 9) * 40744 / 1000000)
+    }
+    for y in 0..g.h {
+        let dy = y * 29
+        g.tmp[160 + y] = sin256(l, (dy * 1000 - t100 * 13 / 2) * 40744 / 1000000)
+    }
+    for y in 0..g.h {
+        for x in 0..g.w {
+            let dx = x * 14
+            let dy = y * 29
+            let s1 = g.tmp[x]
+            let s2 = g.tmp[160 + y]
+            let mx = (dx * 60 + dy * 80) / 100
+            let my = dy * 70 / 100
+            let hh = hypo(num_abs(mx), num_abs(my))
+            let s3 = sin256(l, (hh * 10 - t100 * 10) * 40744 / 1000000)
+            let v = (s1 + s2 + s3) / 3
+            let num = v + 300 + den100 * 25 / 10
+            var lv = 0
+            if num > 0 {
+                lv = num * 1000 / 1450
+                if lv > 1000 {
+                    lv = 1000
+                }
+            }
+            if lv > 25 {
+                var ch = 0
+                if gly != 0 || lv > 700 {
+                    ch = glyph_for(a, gly, salt, x, y, t7)
+                } else {
+                    ch = buffer_get(".:+=*", lv * 5 / 1000)
+                }
+                put(g, x, y, ch, lv, v * 400 / 1000 + huet + x * 14 / 100)
+            }
+        }
+    }
+}
+
+fn tunnel_draw(g: Grid, a: Alpha, gly: int64, salt: int64, t100: int64, l: Lut, den100: int64) {
+    let edge = 840 - den100 * 13 / 10
+    let espan = 1000 - edge
+    let t7 = t100 * 245 / 10000
+    for s in 0..256 {
+        var sp = sin256(l, s * 8 + t100 * 815 / 10000)
+        if sp < 0 {
+            sp = 0 - sp
+        }
+        var spokes = 0
+        if sp > 970 {
+            spokes = (sp - 970) * 380 / 30
+        }
+        g.tmp[s] = spokes
+    }
+    for y in 0..g.h {
+        for x in 0..g.w {
+            let dx = polar_dx(x, g.w)
+            let dy = polar_dy(y, g.h)
+            let r = hypo(num_abs(dx), num_abs(dy))
+            let sec = ang256(l, dx, dy)
+            let sq = isqrt(r)
+            let ring_arg = (sq * 500 - t100 * 20) * 40744 / 1000000
+            var ring = sin256(l, ring_arg)
+            if ring < 0 {
+                ring = 0 - ring
+            }
+            var rings = 0
+            if ring > edge {
+                rings = (ring - edge) * 1000 / espan
+            }
+            let spokes = g.tmp[sec]
+            var top = rings
+            if spokes > top {
+                top = spokes
+            }
+            if top > 0 {
+                var gate = r * 5
+                if gate > 1000 {
+                    gate = 1000
+                }
+                let lv = top * gate / 1000
+                if lv > 25 {
+                    var ch = 0
+                    if gly != 0 || lv > 700 {
+                        ch = glyph_for(a, gly, salt, x, y, t7)
+                    } else {
+                        ch = buffer_get(".:+=*", lv * 5 / 1000)
+                    }
+                    put(g, x, y, ch, lv, r * 35 / 100 - t100 * 30 / 1000)
+                }
+            }
+        }
+    }
+}
+
+fn fireworks_draw(g: Grid, a: Alpha, gly: int64, salt: int64, t100: int64, l: Lut, den100: int64) {
+    let slots = (den100 * 5 + 99) / 100
+    let t7 = t100 * 245 / 10000
+    for slot in 0..slots {
+        let clock = t100 + slot * 70
+        let phase = clock % 320
+        let cyc = clock / 320
+        let sd = (salt + hash_mix(cyc + 7919) + hash_mix(slot + 104729)) % 2147483648
+        let u0 = unit1000(hash_mix(sd))
+        let u1 = unit1000(hash_mix(sd + 1))
+        let cx = g.w * 20 + g.w * u0 * 60 / 100000
+        let cy = g.h * 18 + g.h * u1 * 38 / 100000
+        if phase < 45 {
+            for tail in 0..5 {
+                var an = phase - tail * 5 / 2
+                if an < 0 {
+                    an = 0
+                }
+                let y100 = g.h * 100 + (cy - g.h * 100) * an * 1000 / 45 / 1000
+                var ch = 42
+                if gly != 0 {
+                    ch = glyph_for(a, gly, sd, tail, 0, t7)
+                }
+                put(g, (cx + 50) / 100, (y100 + 50) / 100, ch, 1000 - tail * 130, slot * 1000 / slots)
+            }
+        } else {
+            let age = phase - 45
+            if age <= 210 {
+                let u2 = unit1000(hash_mix(sd + 2))
+                let particles = 24 + den100 * 16 / 100
+                for p in 0..particles {
+                    let ang = p * 256 / particles + u2 * 256 / 1000
+                    let u3 = unit1000(hash_mix(sd + 5 + p))
+                    var base = g.h * 30
+                    if base < 200 {
+                        base = 200
+                    }
+                    let spd = base * (500 + u3 / 2) / 100000
+                    let co = sin256(l, ang + 64)
+                    let si = sin256(l, ang)
+                    for tail in 0..3 {
+                        var tt = age - tail * 7
+                        if tt < 0 {
+                            tt = 0
+                        }
+                        let x100 = cx + co * spd * tt / 52000
+                        let y100 = cy + si * spd * tt / 100000 + g.h * 55 * tt * tt / 100000000
+                        let lv = (210 - age) * 10 / 21 * (1000 - tail * 240) / 1000
+                        var ch = 0
+                        if gly == 0 {
+                            ch = 46
+                            if lv >= 350 {
+                                ch = 43
+                            }
+                            if lv >= 700 {
+                                ch = 42
+                            }
+                        } else {
+                            ch = glyph_for(a, gly, sd, p, tail, t7)
+                        }
+                        put(g, (x100 + 50) / 100, (y100 + 50) / 100, ch, lv, slot * 1000 / slots + p * 2)
+                    }
+                }
+            }
+        }
+    }
+}

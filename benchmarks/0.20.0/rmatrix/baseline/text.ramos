@@ -1,0 +1,118 @@
+weave "bytes.ramos"
+
+// Scalar-based string helpers; search returns -1 when no match exists.
+fn text_starts(text: string, prefix: string) -> bool {
+    let size = len(prefix)
+    if size > len(text) { return false }
+    return slice(text, 0, size) == prefix
+}
+fn text_ends(text: string, suffix: string) -> bool {
+    let size = len(suffix)
+    let total = len(text)
+    if size > total { return false }
+    return slice(text, total - size, total) == suffix
+}
+fn text_find(text: string, needle: string) -> int64 {
+    let total = len(text)
+    let size = len(needle)
+    var i = 0
+    while i + size <= total {
+        if slice(text, i, i + size) == needle { return i }
+        i = i + 1
+    }
+    return -1
+}
+fn text_contains(text: string, needle: string) -> bool {
+    return text_find(text, needle) >= 0
+}
+fn text_join(parts: [string], separator: string) -> string {
+    let separator_bytes = to_bytes(separator)
+    var total = 0
+    var i = 0
+    while i < array_len(parts) {
+        let part = to_bytes(parts[i])
+        total = total + buffer_len(part)
+        if i > 0 { total = total + buffer_len(separator_bytes) }
+        i = i + 1
+    }
+    let out = buffer(total)
+    var at = 0
+    i = 0
+    while i < array_len(parts) {
+        if i > 0 { bytes_put(out, at, separator_bytes)
+            at = at + buffer_len(separator_bytes) }
+        let part = to_bytes(parts[i])
+        bytes_put(out, at, part)
+        at = at + buffer_len(part)
+        i = i + 1
+    }
+    return string(out)
+}
+fn text_repeat(text: string, count: int64) -> string {
+    if count < 0 { stderr("Ramos library error: negative repeat count\n")
+        exit(1) }
+    let raw = to_bytes(text)
+    if buffer_len(raw) == 0 { return s"" }
+    let out = buffer(buffer_len(raw) * count)
+    var i = 0
+    while i < count {
+        bytes_put(out, i * buffer_len(raw), raw)
+        i = i + 1
+    }
+    return string(out)
+}
+
+// Reusable UTF-8 assembly. Append copies only the new text, growing by doubling.
+// Snapshots are immutable copies; aliases of the builder share mutable state.
+struct TextBuilder { data: bytes, count: int64 }
+fn text_builder() -> TextBuilder { return TextBuilder(buffer(64), 0) }
+fn text_builder_valid(builder: TextBuilder) {
+    if builder.count < 0 || builder.count > buffer_len(builder.data) {
+        stderr("Ramos library error: invalid text builder state\n")
+        exit(1)
+    }
+}
+// Byte count, not Unicode scalar count.
+fn text_builder_bytes(builder: TextBuilder) -> int64 {
+    text_builder_valid(builder)
+    return builder.count
+}
+// Return -27 without changing the builder if the result exceeds 1 MiB.
+// Allocation failure retains the checked native runtime trap.
+fn text_builder_append(builder: TextBuilder, text: string) -> int64 {
+    text_builder_valid(builder)
+    let raw = to_bytes(text)
+    let size = buffer_len(raw)
+    if size > 1048576 - builder.count { return -27 }
+    let total = builder.count + size
+    if total > buffer_len(builder.data) {
+        var capacity = buffer_len(builder.data)
+        if capacity == 0 { capacity = 64 }
+        while capacity < total {
+            if capacity >= 524288 { capacity = 1048576 }
+            else { capacity = capacity * 2 }
+        }
+        let grown = buffer(capacity)
+        bytes_put(grown, 0, builder.data)
+        builder.data = grown
+    }
+    bytes_put(builder.data, builder.count, raw)
+    builder.count = total
+    return 0
+}
+fn text_builder_finish(builder: TextBuilder) -> string {
+    text_builder_valid(builder)
+    return string(bytes_slice(builder.data, 0, builder.count))
+}
+// Reuse capacity for the next result.
+fn text_builder_clear(builder: TextBuilder) {
+    text_builder_valid(builder)
+    builder.count = 0
+}
+// Drop owned storage; normal collection reclaims it if no other alias holds it.
+// Existing string snapshots remain valid and future appends can reuse the builder.
+fn text_builder_release(builder: TextBuilder) {
+    text_builder_valid(builder)
+    builder.data = ""
+    builder.count = 0
+}

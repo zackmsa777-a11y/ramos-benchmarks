@@ -1,0 +1,696 @@
+weave "common.ramos"
+weave "scenes_a.ramos"
+weave "scenes_b.ramos"
+weave "render.ramos"
+weave "font.ramos"
+
+// rmatrix: twelve terminal animations in Ramos. See README.md for the
+// deliberate deviations from nmatrix (8 colors, deadline-paced FPS, ASCII names).
+
+fn print_help() {
+    print("rmatrix - terminal animations in Ramos")
+    print("")
+    print("Usage: rmatrix [OPTIONS]")
+    print("")
+    print("  --mode       rain|waterfall|waves|spiral|glitch|starfield")
+    print("               blackhole|galaxy|aurora|plasma|tunnel|fireworks")
+    print("  --palette    emerald|cyan|violet|amber|rainbow|rose|ice|sunset")
+    print("  --glyphs     matrix|binary|hex")
+    print("  --speed      0.15-8 (default 1)")
+    print("  --density    0.2-1.4 (default 0.7)")
+    print("  --fps        1-60 (default 60)")
+    print("  --seed       unsigned integer")
+    print("  --demo       automatically cycle modes and palettes")
+    print("  --echo       add motion echoes")
+    print("  --pulse      pulse brightness")
+    print("  --scanlines  add alternating scanlines")
+    print("  --name       set and save your name (1-20 ASCII characters)")
+    print("  --no-name    skip the name prompt and banner; no config IO")
+    print("  --help       show this help")
+    print("  --version    show version")
+    print("")
+    print("Keys: 1-9/0 modes | Tab picker | arrows/m cycle | c colors | g glyphs")
+    print("      e echoes | p pulse | s scanlines | r surprise | n name banner")
+    print("      [ ] density | +/- speed | space pause | d demo | h HUD | ? help")
+    print("      q/Esc/Ctrl+C quit")
+}
+
+fn catb(a: bytes, b: bytes) -> bytes {
+    let o = buffer(buffer_len(a) + buffer_len(b))
+    bytes_put(o, 0, a)
+    bytes_put(o, buffer_len(a), b)
+    return o
+}
+
+fn trim_name(b: bytes) -> bytes {
+    var s = 0
+    var e = buffer_len(b)
+    while s < e && buffer_get(b, s) == 32 {
+        s = s + 1
+    }
+    while e > s && buffer_get(b, e - 1) == 32 {
+        e = e - 1
+    }
+    return bytes_slice(b, s, e)
+}
+
+fn valid_name(b: bytes) -> bool {
+    let t = trim_name(b)
+    if buffer_len(t) < 1 || buffer_len(t) > 20 {
+        return false
+    }
+    for i in 0..buffer_len(t) {
+        let v = buffer_get(t, i)
+        if v < 32 || v > 126 {
+            return false
+        }
+    }
+    return true
+}
+
+fn config_path() -> bytes {
+    let home = env_get("HOME")
+    if io_error() != 0 || buffer_len(home) == 0 {
+        return ""
+    }
+    var root = catb(home, "/.config")
+    let xdg = env_get("XDG_CONFIG_HOME")
+    if io_error() == 0 && buffer_len(xdg) > 0 && buffer_get(xdg, 0) == 47 {
+        root = bytes_slice(xdg, 0, buffer_len(xdg))
+    }
+    return catb(catb(root, "/rmatrix"), "/config")
+}
+
+fn config_load(path: bytes) -> bytes {
+    if buffer_len(path) == 0 {
+        return ""
+    }
+    let raw = read_file(path)
+    if io_error() != 0 || buffer_len(raw) < 7 {
+        return ""
+    }
+    if buffer_get(raw, 0) != 110 || buffer_get(raw, 1) != 97 || buffer_get(raw, 2) != 109 || buffer_get(raw, 3) != 101 || buffer_get(raw, 4) != 61 {
+        return ""
+    }
+    var end = buffer_len(raw)
+    for i in 5..buffer_len(raw) {
+        if buffer_get(raw, i) == 10 || buffer_get(raw, i) == 13 {
+            end = i
+            break
+        }
+    }
+    let name = trim_name(bytes_slice(raw, 5, end))
+    if valid_name(name) {
+        return name
+    }
+    return ""
+}
+
+fn config_mkdir(dir: bytes) {
+    for i in 1..buffer_len(dir) {
+        if buffer_get(dir, i) == 47 {
+            dir_create(bytes_slice(dir, 0, i))
+        }
+    }
+    dir_create(dir)
+}
+
+fn config_save(path: bytes, name: bytes) {
+    if buffer_len(path) == 0 {
+        return
+    }
+    var dirend = buffer_len(path)
+    for i in 0..buffer_len(path) {
+        let j = buffer_len(path) - 1 - i
+        if buffer_get(path, j) == 47 {
+            dirend = j
+            break
+        }
+    }
+    config_mkdir(bytes_slice(path, 0, dirend))
+    let o = buffer(5 + buffer_len(name) + 1)
+    bytes_put(o, 0, "name=")
+    bytes_put(o, 5, name)
+    buffer_set(o, 5 + buffer_len(name), 10)
+    if write_file(path, o, 0) != 0 {
+        write_file(path, o, 2)
+    }
+}
+
+fn prompt_name() -> bytes {
+    print("RMATRIX / YOUR NAME")
+    print("Type your name, then Enter. Saved for next time.")
+    while true {
+        let line = read_line()
+        if io_error() != 0 {
+            return ""
+        }
+        if stdin_eof() && buffer_len(line) == 0 {
+            exit(0)
+        }
+        let name = trim_name(line)
+        if valid_name(name) {
+            return name
+        }
+        print("Enter a name with 1-20 ASCII characters.")
+    }
+    return ""
+}
+
+fn main() {
+    var mode = 0
+    var pal = 0
+    var gly = 0
+    var spd100 = 100
+    var den100 = 70
+    var fps = 60
+    var seed = 0
+    var seed_given = false
+    var demo = false
+    var echo = false
+    var pulse = false
+    var scan = false
+    var nameb = ""
+    var name_given = false
+    var noname = false
+    var i = 1
+    while i < arg_count() {
+        let a = arg(i)
+        if bytes_equal(a, "--help") {
+            print_help()
+            return
+        }
+        if bytes_equal(a, "--version") {
+            print("rmatrix 0.2.0 / Ramos 0.20")
+            return
+        }
+        if bytes_equal(a, "--demo") {
+            demo = true
+        } else {
+            if bytes_equal(a, "--echo") {
+                echo = true
+            } else {
+                if bytes_equal(a, "--pulse") {
+                    pulse = true
+                } else {
+                    if bytes_equal(a, "--scanlines") {
+                        scan = true
+                    } else {
+                        if bytes_equal(a, "--no-name") {
+                            noname = true
+                        } else {
+                            if bytes_equal(a, "--mode") || bytes_equal(a, "--palette") || bytes_equal(a, "--glyphs") || bytes_equal(a, "--speed") || bytes_equal(a, "--density") || bytes_equal(a, "--fps") || bytes_equal(a, "--seed") || bytes_equal(a, "--name") {
+                                if i + 1 >= arg_count() {
+                                    stderr("rmatrix: option needs a value\n")
+                                    exit(2)
+                                }
+                                i = i + 1
+                                let v = arg(i)
+                                if bytes_equal(a, "--mode") {
+                                    mode = mode_parse(v)
+                                    if mode < 0 {
+                                        stderr("rmatrix: invalid --mode\n")
+                                        exit(2)
+                                    }
+                                } else {
+                                    if bytes_equal(a, "--palette") {
+                                        pal = pal_parse(v)
+                                        if pal < 0 {
+                                            stderr("rmatrix: invalid --palette\n")
+                                            exit(2)
+                                        }
+                                    } else {
+                                        if bytes_equal(a, "--glyphs") {
+                                            gly = gly_parse(v)
+                                            if gly < 0 {
+                                                stderr("rmatrix: invalid --glyphs\n")
+                                                exit(2)
+                                            }
+                                        } else {
+                                            if bytes_equal(a, "--speed") {
+                                                spd100 = parse100(v)
+                                                if spd100 < 15 || spd100 > 800 {
+                                                    stderr("rmatrix: --speed must be between 0.15 and 8\n")
+                                                    exit(2)
+                                                }
+                                            } else {
+                                                if bytes_equal(a, "--density") {
+                                                    den100 = parse100(v)
+                                                    if den100 < 20 || den100 > 140 {
+                                                        stderr("rmatrix: --density must be between 0.2 and 1.4\n")
+                                                        exit(2)
+                                                    }
+                                                } else {
+                                                    if bytes_equal(a, "--fps") {
+                                                        fps = text_to_int(v)
+                                                        if parse_error() != 0 || fps < 1 || fps > 60 {
+                                                            stderr("rmatrix: --fps must be between 1 and 60\n")
+                                                            exit(2)
+                                                        }
+                                                    } else {
+                                                        if bytes_equal(a, "--seed") {
+                                                            seed = text_to_int(v)
+                                                            if parse_error() != 0 || seed < 0 {
+                                                                stderr("rmatrix: invalid --seed\n")
+                                                                exit(2)
+                                                            }
+                                                            seed_given = true
+                                                        } else {
+                                                            nameb = bytes_slice(v, 0, buffer_len(v))
+                                                            name_given = true
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                stderr("rmatrix: unknown option; use --help\n")
+                                exit(2)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        i = i + 1
+    }
+    if noname && name_given {
+        stderr("rmatrix: --name and --no-name cannot be combined\n")
+        exit(2)
+    }
+    if name_given && !valid_name(nameb) {
+        stderr("rmatrix: --name needs 1-20 ASCII characters\n")
+        exit(2)
+    }
+    let cfgpath = config_path()
+    var show_name = false
+    var dispname = ""
+    if !noname {
+        if name_given {
+            dispname = trim_name(nameb)
+            show_name = true
+            config_save(cfgpath, dispname)
+        } else {
+            dispname = config_load(cfgpath)
+            if buffer_len(dispname) > 0 {
+                show_name = true
+            } else {
+                dispname = prompt_name()
+                if buffer_len(dispname) > 0 {
+                    show_name = true
+                    config_save(cfgpath, dispname)
+                }
+            }
+        }
+    }
+    let term = env_get("TERM")
+    if io_error() == 0 && bytes_equal(term, "dumb") {
+        stderr("rmatrix needs an ANSI-compatible terminal\n")
+        exit(1)
+    }
+    if tui_begin() != 0 {
+        stderr("rmatrix: need an interactive terminal\n")
+        exit(1)
+    }
+    let lut = Lut(array(int64, 256, 0), array(int64, 65, 0))
+    lut_build(lut)
+    let alpha = Alpha("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ<>/{}[]+=*", "01", "0123456789ABCDEF")
+    let cfg = Cfg(mode, pal, gly, den100, spd100, fps, seed)
+    let ui = UI(echo, pulse, scan, true, false, false, show_name, demo, false, true, mode, 0)
+    let clk = Clk(0, 0, 0)
+    let rng = rng_seed(seed + memory_used() + 12345)
+    if seed_given {
+        rng.s = seed % 2147483648
+        if rng.s == 0 {
+            rng.s = 7
+        }
+    }
+    var surprise = rng_next(rng)
+    let grid = Grid(80, 24, array(int64, 1920, 0), array(int64, 1920, 0), array(int64, 1920, 0), array(int64, 256, 0))
+    let rain = Rain(0, array(int64, 320, 0), array(int64, 320, 0), array(int64, 320, 0), array(int64, 320, 0), array(int64, 320, 0))
+    let stars = Stars(0, array(int64, 1500, 0), array(int64, 1500, 0), array(int64, 1500, 0), array(int64, 1500, 0), array(int64, 1500, 0), array(int64, 1500, 0), array(int64, 9000, 0), array(int64, 9000, 0))
+    let gl = Glitch(0, 0, 0, 0, 50)
+    let hist = Hist(array(int64, 1920, 0), array(int64, 1920, 0), array(int64, 1920, 0))
+    let row = Row(buffer(4096), 0)
+    let out = Row(buffer(131072), 0)
+    let fdata = font_init()
+    let fbytes = font_bytes(fdata)
+    let painted = Paint(array(int64, 1920, 0), array(int64, 1920, 0), false, s"")
+    var last_frame = matrix_clock()
+    var next_frame = last_frame
+    var frame_fraction = 0
+    var small_shown = false
+    var first = true
+    while ui.run {
+        let tw = terminal_width()
+        let th = terminal_height()
+        var dirty = first
+        if tw < 20 || th < 6 {
+            if !small_shown {
+                tui_clear()
+                tui_at(1, 1, s"Resize terminal / q quit")
+                small_shown = true
+            }
+            first = true
+            let k = tui_key(200)
+            if io_error() != 0 {
+                tui_end()
+                exit(1)
+            }
+            if k == 3 {
+                tui_end()
+                exit(130)
+            }
+            if k == 113 || k == 81 || k == 27 {
+                ui.run = false
+            }
+        } else {
+            small_shown = false
+            var sw = tw
+            if sw > 160 {
+                sw = 160
+            }
+            var hudh = 0
+            if ui.hud {
+                hudh = 1
+            }
+            var sh = th - hudh
+            if sh > 60 {
+                sh = 60
+            }
+            if first || sw != grid.w || sh != grid.h {
+                dirty = true
+                painted.valid = false
+                painted.hud = s""
+                painted.glyph = array(int64, sw * sh, 0)
+                painted.code = array(int64, sw * sh, 0)
+                grid.w = sw
+                grid.h = sh
+                grid.g = array(int64, sw * sh, 0)
+                grid.l = array(int64, sw * sh, 0)
+                grid.u = array(int64, sw * sh, 0)
+                hist.g = array(int64, sw * sh, 0)
+                hist.l = array(int64, sw * sh, 0)
+                hist.u = array(int64, sw * sh, 0)
+                rain_init(rain, sw, sh, cfg.den100, rng)
+                stars_init(stars, sw, sh, cfg.den100, rng)
+                gl.next100 = clk.t100 + 50
+                tui_clear()
+                first = false
+            }
+            let was_active = !ui.paused && !ui.help && !ui.pick
+            var delay = num_clamp(next_frame - matrix_clock(), 0, 100)
+            if !was_active { delay = 100 }
+            let key = tui_key(delay)
+            if io_error() != 0 {
+                tui_end()
+                exit(1)
+            }
+            if key == 3 {
+                tui_end()
+                exit(130)
+            }
+            let frame_time = matrix_clock()
+            let old_hud = ui.hud
+            let old_help = ui.help
+            let old_pick = ui.pick
+            let old_sig = ui.sig
+            let pmode = cfg.mode
+            let pden = cfg.den100
+            let pgly = cfg.gly
+            if ui.pick {
+                if key == 27 || key == 9 {
+                    ui.pick = false
+                } else {
+                    if key == 256 {
+                        ui.sel = ui.sel + 11
+                        if ui.sel > 11 {
+                            ui.sel = ui.sel - 12
+                        }
+                    } else {
+                        if key == 257 {
+                            ui.sel = ui.sel + 1
+                            if ui.sel > 11 {
+                                ui.sel = ui.sel - 12
+                            }
+                        } else {
+                            if key == 13 {
+                                cfg.mode = ui.sel
+                                ui.pick = false
+                            } else {
+                                if key == 113 || key == 81 {
+                                    ui.run = false
+                                } else {
+                                    if key >= 49 && key <= 57 {
+                                        cfg.mode = key - 49
+                                        ui.pick = false
+                                    } else {
+                                        if key == 48 {
+                                            cfg.mode = 9
+                                            ui.pick = false
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                if key == 113 || key == 81 || key == 27 {
+                    ui.run = false
+                } else {
+                    if key >= 49 && key <= 57 {
+                        cfg.mode = key - 49
+                    } else {
+                        if key == 48 {
+                            cfg.mode = 9
+                        } else {
+                            if key == 9 {
+                                ui.help = false
+                                ui.sel = cfg.mode
+                                ui.pick = true
+                            } else {
+                                if key == 258 || key == 109 {
+                                    cfg.mode = cfg.mode + 1
+                                    if cfg.mode > 11 {
+                                        cfg.mode = 0
+                                    }
+                                } else {
+                                    if key == 259 {
+                                        cfg.mode = cfg.mode + 11
+                                        if cfg.mode > 11 {
+                                            cfg.mode = cfg.mode - 12
+                                        }
+                                    } else {
+                                        if key == 99 {
+                                            cfg.pal = cfg.pal + 1
+                                            if cfg.pal > 7 {
+                                                cfg.pal = 0
+                                            }
+                                        } else {
+                                            if key == 103 {
+                                                cfg.gly = cfg.gly + 1
+                                                if cfg.gly > 2 {
+                                                    cfg.gly = 0
+                                                }
+                                            } else {
+                                                if key == 43 || key == 61 || key == 256 {
+                                                    cfg.spd100 = cfg.spd100 * 12 / 10
+                                                    if cfg.spd100 > 800 {
+                                                        cfg.spd100 = 800
+                                                    }
+                                                } else {
+                                                    if key == 45 || key == 95 || key == 257 {
+                                                        cfg.spd100 = cfg.spd100 * 10 / 12
+                                                        if cfg.spd100 < 15 {
+                                                            cfg.spd100 = 15
+                                                        }
+                                                    } else {
+                                                        if key == 93 {
+                                                            cfg.den100 = cfg.den100 + 10
+                                                            if cfg.den100 > 140 {
+                                                                cfg.den100 = 140
+                                                            }
+                                                        } else {
+                                                            if key == 91 {
+                                                                cfg.den100 = cfg.den100 - 10
+                                                                if cfg.den100 < 20 {
+                                                                    cfg.den100 = 20
+                                                                }
+                                                            } else {
+                                                                if key == 32 {
+                                                                    ui.paused = !ui.paused
+                                                                } else {
+                                                                    if key == 104 {
+                                                                        ui.hud = !ui.hud
+                                                                    } else {
+                                                                        if key == 63 {
+                                                                            ui.help = !ui.help
+                                                                        } else {
+                                                                            if key == 100 {
+                                                                                ui.demo = !ui.demo
+                                                                                ui.demot = 0
+                                                                            } else {
+                                                                                if key == 101 {
+                                                                                    ui.echo = !ui.echo
+                                                                                } else {
+                                                                                    if key == 112 {
+                                                                                        ui.pulse = !ui.pulse
+                                                                                    } else {
+                                                                                        if key == 115 {
+                                                                                            ui.scan = !ui.scan
+                                                                                        } else {
+                                                                                            if key == 110 {
+                                                                                                ui.sig = !ui.sig
+                                                                                            } else {
+                                                                                                if key == 114 {
+                                                                                                    surprise = hash_mix(surprise)
+                                                                                                    cfg.mode = (cfg.mode + 1 + surprise % 11) % 12
+                                                                                                    let lo = surprise % 8388608
+                                                                                                    let rot = surprise / 8388608 + lo * 256
+                                                                                                    cfg.pal = (cfg.pal + 1 + rot % 7) % 8
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if !ui.run { break }
+            if key >= 0 {
+                dirty = true
+            }
+            // Removing an overlay must restore unchanged underlying cells.
+            if old_help != ui.help || old_pick != ui.pick || old_sig != ui.sig || old_hud != ui.hud {
+                painted.valid = false
+                painted.hud = s""
+            }
+            if old_hud != ui.hud { tui_clear() }
+            let active = !ui.paused && !ui.help && !ui.pick
+            if !dirty && (!active || frame_time < next_frame) {
+                if !active { last_frame = frame_time }
+                continue
+            }
+            var elapsed = frame_time - last_frame
+            last_frame = frame_time
+            if !was_active || !active { elapsed = 0 }
+            // Carry fractional milliseconds instead of rounding 60 FPS to 62.5.
+            frame_fraction += 1000
+            next_frame = frame_time + frame_fraction / cfg.fps
+            frame_fraction = frame_fraction % cfg.fps
+            if pmode != cfg.mode || pden != cfg.den100 || pgly != cfg.gly {
+                rain_init(rain, sw, sh, cfg.den100, rng)
+                stars_init(stars, sw, sh, cfg.den100, rng)
+                gl.next100 = clk.t100 + 50
+                hist_clear(hist, sw * sh)
+                ui.demot = 0
+            }
+            var dt = 0
+            if !ui.paused && !ui.help && !ui.pick {
+                clk.acc += elapsed * cfg.spd100
+                dt = clk.acc / 1000
+                clk.acc = clk.acc % 1000
+                clk.t100 = clk.t100 + dt
+                clk.tick = clk.tick + 1
+                if ui.demo {
+                    ui.demot = ui.demot + dt
+                    if ui.demot >= 1200 {
+                        cfg.mode = cfg.mode + 1
+                        if cfg.mode > 11 {
+                            cfg.mode = 0
+                        }
+                        cfg.pal = cfg.pal + 1
+                        if cfg.pal > 7 {
+                            cfg.pal = 0
+                        }
+                        ui.demot = 0
+                        rain_init(rain, sw, sh, cfg.den100, rng)
+                        stars_init(stars, sw, sh, cfg.den100, rng)
+                        gl.next100 = clk.t100 + 50
+                        hist_clear(hist, sw * sh)
+                    }
+                }
+                if cfg.mode == 0 || cfg.mode == 1 || cfg.mode == 4 {
+                    rain_update(rain, sh, dt, cfg.mode == 1, clk.t100, lut, rng)
+                }
+                if cfg.mode == 4 {
+                    glitch_update(gl, sw, sh, clk.t100, rng)
+                }
+                if cfg.mode == 5 {
+                    stars_update(stars, sw, sh, dt, rng)
+                }
+            }
+            grid_clear(grid)
+            if cfg.mode == 0 || cfg.mode == 1 || cfg.mode == 4 {
+                rain_draw(grid, rain, alpha, cfg.gly, cfg.seed + 1, clk.t100)
+            }
+            if cfg.mode == 1 {
+                fall_draw(grid, alpha, cfg.gly, cfg.seed + 1, clk.t100, lut)
+            }
+            if cfg.mode == 2 {
+                waves_draw(grid, alpha, cfg.gly, cfg.seed + 1, clk.t100, lut, cfg.den100)
+            }
+            if cfg.mode == 3 {
+                spiral_draw(grid, alpha, cfg.gly, cfg.seed + 1, clk.t100, lut, cfg.den100)
+            }
+            if cfg.mode == 4 {
+                glitch_band(grid, gl, alpha, cfg.gly, cfg.seed + 1, clk.t100)
+            }
+            if cfg.mode == 5 {
+                starfield_draw(grid, stars, alpha, cfg.gly, cfg.seed + 1, clk.t100)
+            }
+            if cfg.mode == 6 {
+                blackhole_draw(grid, alpha, cfg.gly, cfg.seed + 1, clk.t100, lut, cfg.den100)
+            }
+            if cfg.mode == 7 {
+                galaxy_draw(grid, alpha, cfg.gly, cfg.seed + 1, clk.t100, lut, cfg.den100)
+            }
+            if cfg.mode == 8 {
+                aurora_draw(grid, alpha, cfg.gly, cfg.seed + 1, clk.t100, lut, cfg.den100)
+            }
+            if cfg.mode == 9 {
+                plasma_draw(grid, alpha, cfg.gly, cfg.seed + 1, clk.t100, lut, cfg.den100)
+            }
+            if cfg.mode == 10 {
+                tunnel_draw(grid, alpha, cfg.gly, cfg.seed + 1, clk.t100, lut, cfg.den100)
+            }
+            if cfg.mode == 11 {
+                fireworks_draw(grid, alpha, cfg.gly, cfg.seed + 1, clk.t100, lut, cfg.den100)
+            }
+            row_reset(out)
+            emit_grid(grid, cfg, ui, hist, out, lut, dt, clk.t100, painted)
+            if ui.sig && buffer_len(dispname) > 0 && !ui.help && !ui.pick {
+                banner_draw(fbytes, dispname, sw, sh, cfg.pal, clk.t100, lut, row)
+            }
+            if ui.hud {
+                hud_draw(sw, th, cfg, ui, painted)
+            }
+            if ui.help && sw >= 60 && sh >= 17 {
+                help_draw(sw, sh)
+            }
+            if ui.pick && sw >= 26 && sh >= 5 {
+                picker_draw(sw, sh, ui)
+            }
+        }
+    }
+    if tui_end() != 0 {
+        exit(1)
+    }
+}

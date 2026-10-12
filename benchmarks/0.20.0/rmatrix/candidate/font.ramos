@@ -1,0 +1,174 @@
+weave "common.ramos"
+
+// rmatrix name banner: 5x7 block font stored as "0/1" strings plus overlay draw.
+
+fn font_init() -> [string] {
+    let f = array(string, 41, s"")
+    f[0] = s"01110100011000111111100011000110001"
+    f[1] = s"11110100011000111110100011000111110"
+    f[2] = s"01110100011000010000100001000101110"
+    f[3] = s"11110100011000110001100011000111110"
+    f[4] = s"11111100001000011110100001000011111"
+    f[5] = s"11111100001000011110100001000010000"
+    f[6] = s"01110100011000010111100011000101111"
+    f[7] = s"10001100011000111111100011000110001"
+    f[8] = s"11111001000010000100001000010011111"
+    f[9] = s"00111000100001000010100101001001100"
+    f[10] = s"10001100101010011000101001001010001"
+    f[11] = s"10000100001000010000100001000011111"
+    f[12] = s"10001110111010110101100011000110001"
+    f[13] = s"10001110011010110011100011000110001"
+    f[14] = s"01110100011000110001100011000101110"
+    f[15] = s"11110100011000111110100001000010000"
+    f[16] = s"01110100011000110001101011001001101"
+    f[17] = s"11110100011000111110101001001010001"
+    f[18] = s"01111100001000001110000010000111110"
+    f[19] = s"11111001000010000100001000010000100"
+    f[20] = s"10001100011000110001100011000101110"
+    f[21] = s"10001100011000110001100010101000100"
+    f[22] = s"10001100011000110101101011010101010"
+    f[23] = s"10001100010101000100010101000110001"
+    f[24] = s"10001100010101000100001000010000100"
+    f[25] = s"11111000010001000100010001000011111"
+    f[26] = s"01110100011001110101110011000101110"
+    f[27] = s"00100011000010000100001000010001110"
+    f[28] = s"01110100010000100010001000100011111"
+    f[29] = s"11110000010000101110000010000111110"
+    f[30] = s"00010001100101010010111110001000010"
+    f[31] = s"11111100001000011110000010000111110"
+    f[32] = s"01110100001000011110100011000101110"
+    f[33] = s"11111000010001000100010000100001000"
+    f[34] = s"01110100011000101110100011000101110"
+    f[35] = s"01110100011000101111000010000101110"
+    f[36] = s"00000000000000000000000000000000000"
+    f[37] = s"00000000000000011111000000000000000"
+    f[38] = s"00000000000000000000000000000011111"
+    f[39] = s"00000000000000000000000000110001100"
+    f[40] = s"00100001000000000000000000000000000"
+    return f
+}
+
+fn font_bytes(f: [string]) -> [bytes] {
+    let b = array(bytes, 41, "")
+    for i in 0..41 {
+        b[i] = to_bytes(f[i])
+    }
+    return b
+}
+
+fn font_index(ch: int64) -> int64 {
+    if ch >= 65 && ch <= 90 {
+        return ch - 65
+    }
+    if ch >= 97 && ch <= 122 {
+        return ch - 97
+    }
+    if ch >= 48 && ch <= 57 {
+        return ch - 48 + 26
+    }
+    if ch == 32 {
+        return 36
+    }
+    if ch == 45 {
+        return 37
+    }
+    if ch == 95 {
+        return 38
+    }
+    if ch == 46 {
+        return 39
+    }
+    if ch == 39 {
+        return 40
+    }
+    return -1
+}
+
+fn banner_label(name: bytes, w: int64, h: int64) {
+    var label = string(name) + s" / n hide"
+    if len(label) > w - 4 {
+        label = slice(label, 0, w - 4)
+    }
+    let x = (w - len(label) - 2) / 2 + 1
+    tui_move(h / 2 + 1, x)
+    tui_color(2, 0)
+    tui_write(s"  " + label + s"  ")
+    tui_reset()
+}
+
+fn banner_draw(fb: [bytes], name: bytes, w: int64, h: int64, pal: int64, t100: int64, l: Lut, r: Row) {
+    let n = buffer_len(name)
+    if n == 0 {
+        return
+    }
+    var ok = true
+    for i in 0..n {
+        if font_index(buffer_get(name, i)) < 0 {
+            ok = false
+        }
+    }
+    let base = n * 6 - 1
+    if !ok || base > w - 4 || h < 10 {
+        banner_label(name, w, h)
+        return
+    }
+    let mw = w - 4
+    let mh = h - 3
+    var vert = 1
+    if base * 4 <= mw && mh >= 14 {
+        vert = 2
+    }
+    var horiz = vert
+    if base * 2 * vert > mw {
+        horiz = vert
+    } else {
+        horiz = vert * 2
+    }
+    let rows = 7 * vert
+    let cols = base * horiz
+    let x0 = (w - cols - 4) / 2 + 1
+    let y0 = (h - rows - 2) / 2 + 1
+    for mr in 0..rows {
+        row_reset(r)
+        var cur = 0 - 1
+        for mc in 0..cols {
+            let letter = mc / (6 * horiz)
+            let bx = mc / horiz % 6
+            var on = false
+            if bx < 5 {
+                let fi = font_index(buffer_get(name, letter))
+                if buffer_get(fb[fi], mr / vert * 5 + bx) == 49 {
+                    on = true
+                }
+            }
+            if on {
+                let lv = 780 + sin256(l, t100 * 6926 / 10000 + mc * 53 / 10) * 200 / 1000
+                let code = cell_code(pal, lv, mc * 1000 / cols + t100 * 30 / 1000)
+                if code != cur {
+                    row_esc(r, code)
+                    cur = code
+                }
+                row_byte(r, 226)
+                row_byte(r, 150)
+                row_byte(r, 136)
+            } else {
+                if cur != 0 {
+                    row_esc(r, 0)
+                    cur = 0
+                }
+                row_byte(r, 32)
+            }
+        }
+        tui_move(y0 + mr, x0)
+        tui_write(row_done(r))
+    }
+    tui_reset()
+    var label = string(name) + s" / n hide"
+    if len(label) > w - 4 {
+        label = slice(label, 0, w - 4)
+    }
+    tui_move(y0 + rows + 1, (w - len(label) - 2) / 2 + 1)
+    tui_color(2, 0)
+    tui_write(s" " + label + s" ")
+    tui_reset()
+}

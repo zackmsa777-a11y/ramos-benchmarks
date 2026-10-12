@@ -1,0 +1,154 @@
+// Native desktop GUI (Windows x64 and Linux GTK3). IDs are 1..64, coordinates are pixels.
+// No callbacks or OS handles escape into Ramos. Poll ordinary typed events.
+struct GuiEvent { kind: int64, id: int64, width: int64, height: int64 }
+
+fn gui_word(out: bytes, at: int64, value: int64) {
+    if value < 0 { stderr("Ramos GUI error: negative property\n")
+        exit(1) }
+    var n = value
+    var i = 0
+    while i < 8 { buffer_set(out, at + i, n % 256)
+        n = n / 256
+        i = i + 1 }
+}
+fn gui_number(raw: bytes, at: int64) -> int64 {
+    var n = 0
+    var i = 7
+    while i >= 0 { n = n * 256 + buffer_get(raw, at + i)
+        i = i - 1 }
+    return n
+}
+fn gui_check(status: int64) {
+    if status != 0 {
+        _gui_close()
+        stderr("Ramos GUI error: native operation failed, status ")
+        stderr(int_to_text(status))
+        stderr("\n")
+        exit(1)
+    }
+}
+// Opening is fallible: static Linux builds return -38; use --gui.
+// Linux --gui needs GTK3 and a display; no display returns -19.
+fn gui_open(title: string, width: int64, height: int64) -> int64 {
+    return _gui_open(to_bytes(title), width, height)
+}
+fn gui_close() -> int64 { return _gui_close() }
+fn gui_rgb(red: int64, green: int64, blue: int64) -> int64 {
+    if red < 0 || red > 255 || green < 0 || green > 255 || blue < 0 || blue > 255 {
+        stderr("Ramos GUI error: color components must be 0..255\n")
+        exit(1)
+    }
+    return red + green * 256 + blue * 65536
+}
+fn gui_properties(kind: int64, id: int64, x: int64, y: int64,
+                  width: int64, height: int64, color: int64) -> bytes {
+    let out = buffer(56)
+    gui_word(out, 0, kind)
+    gui_word(out, 8, id)
+    gui_word(out, 16, x)
+    gui_word(out, 24, y)
+    gui_word(out, 32, width)
+    gui_word(out, 40, height)
+    gui_word(out, 48, color)
+    return out
+}
+fn gui_label(id: int64, x: int64, y: int64, width: int64, height: int64, text: string) {
+    gui_check(_gui_control(gui_properties(1, id, x, y, width, height, 0), to_bytes(text)))
+}
+fn gui_button(id: int64, x: int64, y: int64, width: int64, height: int64, text: string) {
+    gui_check(_gui_control(gui_properties(2, id, x, y, width, height, 0), to_bytes(text)))
+}
+fn gui_input(id: int64, x: int64, y: int64, width: int64, height: int64, text: string) {
+    gui_check(_gui_control(gui_properties(3, id, x, y, width, height, 0), to_bytes(text)))
+}
+fn gui_editor(id: int64, x: int64, y: int64, width: int64, height: int64, text: string) {
+    gui_check(_gui_control(gui_properties(4, id, x, y, width, height, 0), to_bytes(text)))
+}
+fn gui_panel(id: int64, x: int64, y: int64, width: int64, height: int64, color: int64) {
+    gui_check(_gui_control(gui_properties(5, id, x, y, width, height, color), ""))
+}
+// Fallible setter for file bytes: validate before replacing existing text.
+fn gui_set_bytes(id: int64, text: bytes) -> int64 {
+    return _gui_control(gui_properties(6, id, 0, 0, 0, 0, 0), text)
+}
+fn gui_set(id: int64, text: string) { gui_check(gui_set_bytes(id, to_bytes(text))) }
+fn gui_move(id: int64, x: int64, y: int64, width: int64, height: int64) {
+    gui_check(_gui_control(gui_properties(7, id, x, y, width, height, 0), ""))
+}
+fn gui_text(id: int64) -> string {
+    let raw = _gui_text(id)
+    let status = io_error()
+    gui_check(status)
+    return string(raw)
+}
+// kind: 0 timeout, 1 close, 2 button, 3 resize, 4 parent key, 5 text changed.
+// Resize carries client width/height. Key carries Windows virtual-key in id.
+fn gui_event(timeout_ms: int64) -> GuiEvent {
+    let raw = _gui_poll(timeout_ms)
+    let status = io_error()
+    gui_check(status)
+    return GuiEvent(gui_number(raw, 0), gui_number(raw, 8),
+                    gui_number(raw, 16), gui_number(raw, 24))
+}
+
+// Small explicit geometry helpers. Extents fit the 0..8192 coordinate domain.
+struct GuiRect { x: int64, y: int64, width: int64, height: int64 }
+fn gui_layout_error() {
+    stderr("Ramos GUI error: invalid layout bounds, spacing or index\n")
+    exit(1)
+}
+fn gui_rect(x: int64, y: int64, width: int64, height: int64) -> GuiRect {
+    if x < 0 || y < 0 || x > 8192 || y > 8192 || width < 1 || height < 1 || width > 8192 || height > 8192 {
+        gui_layout_error()
+    }
+    if x + width > 8192 || y + height > 8192 { gui_layout_error() }
+    return GuiRect(x, y, width, height)
+}
+fn gui_inset(width: int64, height: int64, padding: int64) -> GuiRect {
+    if width < 1 || height < 1 || width > 8192 || height > 8192 || padding < 0 || padding > 8192 {
+        gui_layout_error()
+    }
+    if padding * 2 >= width || padding * 2 >= height { gui_layout_error() }
+    return gui_rect(padding, padding, width - padding * 2, height - padding * 2)
+}
+// Equal cells fill the axis exactly; remainder pixels go to later boundaries.
+fn gui_cell(bounds: GuiRect, index: int64, count: int64, gap: int64, vertical: bool) -> GuiRect {
+    let checked = gui_rect(bounds.x, bounds.y, bounds.width, bounds.height)
+    if count < 1 || count > 64 || index < 0 || index >= count || gap < 0 || gap > 8192 {
+        gui_layout_error()
+    }
+    var size = checked.width
+    if vertical { size = checked.height }
+    let usable = size - (count - 1) * gap
+    if usable < count { gui_layout_error() }
+    let start = usable * index / count
+    let length = usable * (index + 1) / count - start
+    if vertical { return gui_rect(checked.x, checked.y + start + index * gap, checked.width, length) }
+    return gui_rect(checked.x + start + index * gap, checked.y, length, checked.height)
+}
+fn gui_row(bounds: GuiRect, index: int64, count: int64, gap: int64) -> GuiRect {
+    return gui_cell(bounds, index, count, gap, false)
+}
+fn gui_column(bounds: GuiRect, index: int64, count: int64, gap: int64) -> GuiRect {
+    return gui_cell(bounds, index, count, gap, true)
+}
+fn gui_move_to(id: int64, bounds: GuiRect) {
+    let checked = gui_rect(bounds.x, bounds.y, bounds.width, bounds.height)
+    gui_move(id, checked.x, checked.y, checked.width, checked.height)
+}
+
+// Status 0: selected absolute UTF-8 path; 1: cancellation; negative: failure.
+// Pickers choose a single local file path. File reading/writing stays explicit.
+struct GuiPath { path: string, status: int64 }
+fn gui_choose_file(title: string, initial: string, mode: int64) -> GuiPath {
+    let raw = _gui_choose(to_bytes(title), to_bytes(initial), mode)
+    let status = io_error()
+    if status != 0 { return GuiPath(s"", status) }
+    return GuiPath(string(raw), 0)
+}
+fn gui_open_file(title: string, initial: string) -> GuiPath {
+    return gui_choose_file(title, initial, 0)
+}
+fn gui_save_file(title: string, initial: string) -> GuiPath {
+    return gui_choose_file(title, initial, 1)
+}
