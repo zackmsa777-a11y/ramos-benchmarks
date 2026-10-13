@@ -1,7 +1,7 @@
 {
-  "version": "0.23.0",
-  "source_commit": "d496ba4eb84d11152100d258df0464bea4a405bf",
-  "compiler_sha256": "42ccaa638cd3815f31e1447b3c1d70c32351dfeccfdace9a9cba7eb71e8d87f7",
+  "version": "0.24.0",
+  "source_commit": "5b291754ef6a9b4dc2a420b5893fbdbf4b37e3c2",
+  "compiler_sha256": "d6eb08021b352ba133f902d016937af7b7a094704eb1e2e9d92cde024b256e85",
   "fixtures": {
     "lcg": {
       "Ramos": "dc0e70b67f86d1007d6eeccad2529e20311df529d60e800b9ccbb5da78f981f4",

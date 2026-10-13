@@ -112,7 +112,7 @@ also verify the independent 0.22 pin against all 324 reference outputs.
 
 ## Current release correctness
 
-`tools/check_current.py` separately pins Ramos 0.23.0 in
+`tools/check_current.py` separately pins Ramos 0.24.0 in
 [benchmarks/current-compiler.json](benchmarks/current-compiler.json) and verifies
 the same 324 independent four-language outputs. The default 0.20 historical
 reproducer and all committed timing reports stay unchanged. There is no new
