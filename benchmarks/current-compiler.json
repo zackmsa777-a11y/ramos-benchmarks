@@ -1,7 +1,7 @@
 {
-  "version": "0.24.0",
-  "source_commit": "5b291754ef6a9b4dc2a420b5893fbdbf4b37e3c2",
-  "compiler_sha256": "d6eb08021b352ba133f902d016937af7b7a094704eb1e2e9d92cde024b256e85",
+  "version": "0.25.0",
+  "source_commit": "514694f50380f64c87d174548a355c7f54ba98e2",
+  "compiler_sha256": "8657909d52a7882c721c31c17c9d8591bb0fea6f0adc3be87adf88d0a117c90b",
   "fixtures": {
     "lcg": {
       "Ramos": "dc0e70b67f86d1007d6eeccad2529e20311df529d60e800b9ccbb5da78f981f4",
@@ -52,5 +52,6 @@
       "Python": "bb83d1bbfab96fd30db82c1cc0cf83c850f510e421dc503c1d003b6d44d0a5f7"
     }
   },
-  "scope": "Independent output validation only; historical 0.22 timings are unchanged."
+  "scope": "Independent output validation only; historical 0.22 timings are unchanged.",
+  "release_status": "preview: genuine Windows display transitions pending"
 }
